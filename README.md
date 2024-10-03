@@ -47,7 +47,8 @@ Clipify 使用了强大的 ffmpeg 引擎作为后台支持，允许用户通过�
 ### tailwindcss
 
 ```bash
-npx tailwindcss -i .\Clipify.Forms\wwwroot\css\tailwind.css -o .\Clipify.Forms\wwwroot\css\tailwind.min.css --watch
+cd Clipify.Forms
+npx tailwindcss -i .\wwwroot\css\tailwind.css -o .\wwwroot\css\tailwind.min.css --watch
 ```
 
 ## 贡献

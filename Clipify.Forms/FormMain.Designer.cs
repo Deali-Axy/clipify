@@ -34,7 +34,7 @@ partial class FormMain {
         blazorWebView1.Dock = DockStyle.Fill;
         blazorWebView1.Location = new Point(0, 0);
         blazorWebView1.Name = "blazorWebView1";
-        blazorWebView1.Size = new Size(800, 450);
+        blazorWebView1.Size = new Size(1264, 681);
         blazorWebView1.StartPath = "/";
         blazorWebView1.TabIndex = 0;
         blazorWebView1.Text = "blazorWebView1";
@@ -43,7 +43,7 @@ partial class FormMain {
         // 
         AutoScaleDimensions = new SizeF(7F, 17F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(800, 450);
+        ClientSize = new Size(1264, 681);
         Controls.Add(blazorWebView1);
         Name = "FormMain";
         StartPosition = FormStartPosition.CenterScreen;
