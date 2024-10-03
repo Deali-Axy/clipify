@@ -42,6 +42,14 @@ Clipify 使用了强大的 ffmpeg 引擎作为后台支持，允许用户通过�
 - **Blazor**：提供现代化、交互性强的前端体验。
 - **ffmpeg**：作为后台处理引擎，负责视频的剪辑与转换。
 
+## Build
+
+### tailwindcss
+
+```bash
+npx tailwindcss -i .\Clipify.Forms\wwwroot\css\tailwind.css -o .\Clipify.Forms\wwwroot\css\tailwind.min.css --watch
+```
+
 ## 贡献
 
 欢迎对本项目进行贡献，您可以通过以下方式参与：

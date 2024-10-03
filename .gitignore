@@ -1,4 +1,5 @@
 Clipify.Forms/wwwroot/lib
+Clipify.Forms/wwwroot/css/tailwind.min.css
 
 bin/
 obj/
