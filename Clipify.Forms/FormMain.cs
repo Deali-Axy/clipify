@@ -10,6 +10,8 @@ public partial class FormMain : Form
         InitializeComponent();
 
         var services = new ServiceCollection();
+        
+        services.AddSingleton(this);
         services.AddMediatR(cfg => {
             cfg.RegisterServicesFromAssemblyContaining<FormMain>();
         });
@@ -26,7 +28,7 @@ public partial class FormMain : Form
 
     private void openFileDialog_FileOk(object sender, System.ComponentModel.CancelEventArgs e)
     {
-
+        Console.WriteLine($"file ok, {sender}");
     }
 
     private void folderBrowserDialog_HelpRequest(object sender, EventArgs e)

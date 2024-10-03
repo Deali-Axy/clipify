@@ -65,6 +65,6 @@ partial class FormMain {
     #endregion
 
     private Microsoft.AspNetCore.Components.WebView.WindowsForms.BlazorWebView blazorWebView1;
-    private FolderBrowserDialog folderBrowserDialog;
-    private OpenFileDialog openFileDialog;
+    public FolderBrowserDialog folderBrowserDialog;
+    public OpenFileDialog openFileDialog;
 }
