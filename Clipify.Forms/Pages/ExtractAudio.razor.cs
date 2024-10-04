@@ -1,4 +1,6 @@
-﻿namespace Clipify.Forms.Pages;
+﻿using Microsoft.AspNetCore.Components.Forms;
+
+namespace Clipify.Forms.Pages;
 
 public partial class ExtractAudio {
     public string FilePath { get; set; }
@@ -15,5 +17,9 @@ public partial class ExtractAudio {
     private void UpdateSelectedFile(string fileName) {
         FilePath = fileName;
         InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadFiles(InputFileChangeEventArgs e) {
+        
     }
 }

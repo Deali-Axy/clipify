@@ -32,6 +32,7 @@ partial class FormMain {
         // 
         // blazorWebView1
         // 
+        blazorWebView1.AllowDrop = true;
         blazorWebView1.Dock = DockStyle.Fill;
         blazorWebView1.Location = new Point(0, 0);
         blazorWebView1.Name = "blazorWebView1";
@@ -39,6 +40,9 @@ partial class FormMain {
         blazorWebView1.StartPath = "/";
         blazorWebView1.TabIndex = 0;
         blazorWebView1.Text = "blazorWebView1";
+        blazorWebView1.DragDrop += blazorWebView1_DragDrop;
+        blazorWebView1.DragEnter += blazorWebView1_DragEnter;
+        blazorWebView1.DragOver += blazorWebView1_DragOver;
         // 
         // openFileDialog
         // 
