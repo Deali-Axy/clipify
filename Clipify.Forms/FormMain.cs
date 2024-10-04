@@ -1,3 +1,5 @@
+using Clipify.Forms.Services;
+
 namespace Clipify.Forms;
 
 using Microsoft.AspNetCore.Components.WebView.WindowsForms;
@@ -12,6 +14,7 @@ public partial class FormMain : Form
         var services = new ServiceCollection();
         
         services.AddSingleton(this);
+        services.AddScoped<FileDialogService>();
         services.AddMediatR(cfg => {
             cfg.RegisterServicesFromAssemblyContaining<FormMain>();
         });

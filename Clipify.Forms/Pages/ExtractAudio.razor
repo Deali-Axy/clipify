@@ -1,9 +1,6 @@
 ﻿@page "/extract-audio"
-@using Clipify.Forms.EventBus.Request
-@using MediatR
-@using Microsoft.AspNetCore.Components.Forms
 
-@inject IMediator Mediator
+@inject FileDialogService FileDialogService
 
 <PageTitle>提取音频 - Clipify</PageTitle>
 
@@ -22,12 +19,5 @@
         </label>
     </div>
 
+    <div class="p-4">选择的文件：@FilePath</div>
 </div>
-
-@code {
-
-    private async Task OpenFileDialog() {
-        await Mediator.Send(new OpenFileRequest());
-    }
-
-}

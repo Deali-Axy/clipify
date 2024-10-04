@@ -42,7 +42,6 @@ partial class FormMain {
         // 
         // openFileDialog
         // 
-        openFileDialog.FileName = "openFileDialog1";
         openFileDialog.RestoreDirectory = true;
         // 
         // FormMain
