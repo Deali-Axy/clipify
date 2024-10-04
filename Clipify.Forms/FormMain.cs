@@ -25,14 +25,4 @@ public partial class FormMain : Form
         blazorWebView1.RootComponents.Add<App>("#app");
         // blazorWebView1.RootComponents.Add<Counter>("#app");
     }
-
-    private void openFileDialog_FileOk(object sender, System.ComponentModel.CancelEventArgs e)
-    {
-        Console.WriteLine($"file ok, {sender}");
-    }
-
-    private void folderBrowserDialog_HelpRequest(object sender, EventArgs e)
-    {
-
-    }
 }

@@ -1,5 +1,5 @@
 ﻿@page "/extract-audio"
-@using Clipify.Forms.EventBus.Messages
+@using Clipify.Forms.EventBus.Request
 @using MediatR
 @using Microsoft.AspNetCore.Components.Forms
 
@@ -27,7 +27,7 @@
 @code {
 
     private async Task OpenFileDialog() {
-        await Mediator.Send(new OpenFileMsg());
+        await Mediator.Send(new OpenFileRequest());
     }
 
 }

@@ -27,7 +27,6 @@ partial class FormMain {
     private void InitializeComponent()
     {
         blazorWebView1 = new Microsoft.AspNetCore.Components.WebView.WindowsForms.BlazorWebView();
-        folderBrowserDialog = new FolderBrowserDialog();
         openFileDialog = new OpenFileDialog();
         SuspendLayout();
         // 
@@ -41,14 +40,10 @@ partial class FormMain {
         blazorWebView1.TabIndex = 0;
         blazorWebView1.Text = "blazorWebView1";
         // 
-        // folderBrowserDialog
-        // 
-        folderBrowserDialog.HelpRequest += folderBrowserDialog_HelpRequest;
-        // 
         // openFileDialog
         // 
         openFileDialog.FileName = "openFileDialog1";
-        openFileDialog.FileOk += openFileDialog_FileOk;
+        openFileDialog.RestoreDirectory = true;
         // 
         // FormMain
         // 
@@ -65,6 +60,5 @@ partial class FormMain {
     #endregion
 
     private Microsoft.AspNetCore.Components.WebView.WindowsForms.BlazorWebView blazorWebView1;
-    public FolderBrowserDialog folderBrowserDialog;
     public OpenFileDialog openFileDialog;
 }
