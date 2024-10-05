@@ -13,14 +13,15 @@ public partial class FormMain : Form {
 
         _services = new ServiceCollection();
 
-        _services.AddSingleton(this);
-        _services.AddScoped<FileDialogService>();
-        _services.AddMediatR(cfg => { cfg.RegisterServicesFromAssemblyContaining<FormMain>(); });
-        _services.AddWindowsFormsBlazorWebView();
-
 #if DEBUG
         _services.AddBlazorWebViewDeveloperTools();
 #endif
+        _services.AddMediatR(cfg => { cfg.RegisterServicesFromAssemblyContaining<FormMain>(); });
+        _services.AddWindowsFormsBlazorWebView();
+        _services.AddSingleton(this);
+        _services.AddScoped<FileDialogService>();
+        _services.AddScoped<VideoService>();
+
         blazorWebView1.HostPage = "wwwroot\\index.html";
         blazorWebView1.Services = _services.BuildServiceProvider();
         blazorWebView1.RootComponents.Add<App>("#app");

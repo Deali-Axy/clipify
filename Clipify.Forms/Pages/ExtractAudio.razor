@@ -1,7 +1,9 @@
 ﻿@page "/extract-audio"
+@using Clipify.Forms.Extensions
 @using Microsoft.AspNetCore.Components.Forms
 
-@inject FileDialogService FileDialogService
+@inject FileDialogService _fileDialogService
+@inject VideoService _videoService
 
 <PageTitle>提取音频 - Clipify</PageTitle>
 
@@ -23,20 +25,114 @@
     }
     else {
         <div class="p-6 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
-            <i class="fa-solid fa-film text-4xl text-gray-500 dark:text-gray-400 mb-3"></i>
-            <a href="#">
-                <h5 class="mb-2 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
+            <div class="mb-2 flex justify-between items-center">
+                <h5 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
                     @Path.GetFileName(FilePath)
                 </h5>
-            </a>
-            <p class="mb-3 font-normal text-gray-500 dark:text-gray-400">
-                路径：@FilePath
-            </p>
-            <button role="link" class="inline-flex gap-2 font-medium items-center text-blue-600 hover:underline">
-                打开文件
-                <i class="fa-solid fa-up-right-from-square text-xs"></i>
-            </button>
+                <i class="fa-regular fa-file-video text-4xl text-gray-500 dark:text-gray-400"></i>
+            </div>
+
+            @if (MetaData != null) {
+                <ul class="mb-2 flex flex-wrap items-center justify-start gap-4 text-gray-900 dark:text-white">
+                    <li class="flex items-center gap-1">
+                        <i class="fa-regular fa-file"></i>
+                        @FilePath
+                    </li>
+                    <li class="flex items-center gap-1">
+                        <i class="fa-regular fa-clock"></i>
+                        @MetaData.Duration
+                    </li>
+                    <li class="flex items-center gap-1">
+                        <i class="fa-solid fa-file-lines"></i>
+                        @MetaData.FileInfo.GetFriendlySize()
+                    </li>
+                </ul>
+                <div class="mb-2 flex justify-start gap-4 items-start">
+                    <div>
+                        <h3 class="mb-2 flex items-center gap-1 font-semibold text-gray-900 dark:text-white">
+                            <i class="fa-solid fa-film"></i>
+                            视频信息
+                        </h3>
+
+                        <ul class="max-w-md space-y-1 text-gray-500 list-none list-inside dark:text-gray-400">
+                            <li>格式: @MetaData.VideoData.Format</li>
+                            <li>FPS: @MetaData.VideoData.Fps</li>
+                            <li>颜色: @MetaData.VideoData.ColorModel</li>
+                            <li>分辨率: @MetaData.VideoData.FrameSize</li>
+                            <li>码率: @MetaData.VideoData.BitRateKbs</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h3 class="mb-2 flex items-center gap-1 font-semibold text-gray-900 dark:text-white">
+                            <i class="fa-solid fa-headphones"></i>
+                            音频信息
+                        </h3>
+
+                        <ul class="max-w-md space-y-1 text-gray-500 list-none list-inside dark:text-gray-400">
+                            <li>格式: @MetaData.AudioData.Format</li>
+                            <li>采样率: @MetaData.AudioData.SampleRate</li>
+                            <li>声道: @MetaData.AudioData.ChannelOutput</li>
+                            <li>码率: @MetaData.AudioData.BitRateKbs</li>
+                        </ul>
+                    </div>
+                </div>
+            }
+        </div>
+        
+        <div class="mt-2 p-6 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
+            <div class="mb-2 flex justify-between items-center">
+                <h5 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                    输出设置
+                </h5>
+                <i class="fa-solid fa-gears text-4xl text-gray-500 dark:text-gray-400"></i>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+                <div class="col-span-2">
+                    <div>
+                        <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white" for="file_input">保存目录</label>
+                        <input class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400" id="file_input" type="file">
+                    </div>
+                </div>
+
+                <div class="col-span-1">
+                    <label for="countries" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">输出格式</label>
+                    <select id="countries" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                        <option selected>输出格式</option>
+                        <option value="US">United States</option>
+                        <option value="CA">Canada</option>
+                        <option value="FR">France</option>
+                        <option value="DE">Germany</option>
+                    </select>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="mt-2 p-6 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
+            <div class="mb-2 flex justify-between items-center">
+                <h5 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                    ffmpeg命令
+                </h5>
+                <i class="fa-solid fa-terminal text-4xl text-gray-500 dark:text-gray-400"></i>
+            </div>
+
+            <label for="message" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">该操作将会转换为以下ffmpeg命令执行</label>
+            <textarea id="message" rows="4" placeholder="Write your thoughts here..." class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"></textarea>
+
+        </div>
+
+        <div class="mt-2 p-6 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
+            <div class="mb-2 flex justify-between items-center">
+                <h5 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                    执行
+                </h5>
+                <i class="fa-solid fa-play text-4xl text-gray-500 dark:text-gray-400"></i>
+            </div>
+
+            <div>当前状态</div>
         </div>
     }
-    
+
 </div>
