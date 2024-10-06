@@ -42,6 +42,14 @@ public class VideoService {
         var outputPath = Path.Combine(tempThumbnailDir, filename);
         var outputFile = new OutputFile(outputPath);
 
+        var opt = new ConversionOptions {
+            HideBanner = true,
+            HWAccelOutputFormatCopy = true,
+            MapMetadata = true,
+        };
+
+        Console.WriteLine($"命令: {opt}");
+
         if (!File.Exists(outputPath)) {
             await FFmpeg.GetThumbnailAsync(inputFile, outputFile, cancellationToken ?? CancellationToken.None);
         }

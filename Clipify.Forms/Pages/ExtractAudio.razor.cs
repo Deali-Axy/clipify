@@ -11,10 +11,23 @@ public partial class ExtractAudio {
     public string OutputFormat { get; set; } = "mp4";
     public MetaData? MetaData { get; set; }
 
+    public string? FFmpegCommand => GenerateFFmpegCommand();
+
     protected override Task OnInitializedAsync() {
         DialogService.OnFileSelected += UpdateSelectedFile;
         DialogService.OnDirSelected += UpdateSelectedDir;
         return base.OnInitializedAsync();
+    }
+
+    private string? GenerateFFmpegCommand() {
+        if (string.IsNullOrWhiteSpace(VideoPath) || string.IsNullOrWhiteSpace(OutputDir)) {
+            return null;
+        }
+
+        var filename = $"{Path.GetFileNameWithoutExtension(VideoPath)}.{OutputFormat}";
+        var path = Path.Combine(OutputDir, filename);
+
+        return $"ffmpeg -y -hide_banner -i {VideoPath} -q:a 0 -map a {path}";
     }
 
     private async Task OpenFileDialog() {
@@ -40,6 +53,4 @@ public partial class ExtractAudio {
         Console.WriteLine($"保存目录：{path}");
         await InvokeAsync(StateHasChanged);
     }
-
-    private async Task LoadFiles(InputFileChangeEventArgs e) { }
 }

@@ -49,7 +49,7 @@
                     </li>
                     <li class="flex items-center gap-1">
                         <i class="fa-regular fa-clock"></i>
-                        @MetaData.Duration
+                        @MetaData.Duration.ToFriendlyString()
                     </li>
                     <li class="flex items-center gap-1">
                         <i class="fa-solid fa-file-lines"></i>
@@ -109,13 +109,13 @@
                     </div>
 
                     @if (!string.IsNullOrWhiteSpace(Thumbnail)) {
-                    <div>
-                        <h3 class="mb-2 flex items-center gap-1 font-semibold text-gray-900 dark:text-white">
-                            <i class="fa-regular fa-image"></i>
-                            缩略图
-                        </h3>
-                        <img src="@Thumbnail" class="rounded-lg shadow-xl dark:shadow-gray-800" alt="视频缩略图" width="350">
-                    </div>
+                        <div>
+                            <h3 class="mb-2 flex items-center gap-1 font-semibold text-gray-900 dark:text-white">
+                                <i class="fa-regular fa-image"></i>
+                                缩略图
+                            </h3>
+                            <img src="@Thumbnail" class="rounded-lg shadow-xl dark:shadow-gray-800" alt="视频缩略图" width="350">
+                        </div>
                     }
                 </div>
             }
@@ -169,26 +169,22 @@
 
         <div class="mt-2 p-6 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
             <div class="mb-2 flex justify-between items-center">
-                <h5 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
-                    ffmpeg命令
-                </h5>
+                <div class="flex items-center gap-2">
+                    <h5 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                        ffmpeg命令
+                    </h5>
+                    <button role="link" class="inline-flex gap-1 font-medium items-center text-blue-600 hover:underline"
+                            @onclick="() => GenerateFFmpegCommand()">
+                        刷新
+                        <i class="fa-solid fa-arrows-rotate text-xs"></i>
+                    </button>
+                </div>
                 <i class="fa-solid fa-terminal text-4xl text-gray-500 dark:text-gray-400"></i>
             </div>
 
             <label for="message" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">该操作将会转换为以下ffmpeg命令执行</label>
-            <textarea id="message" rows="4" readonly disabled placeholder="选择正确的配置后显示命令" class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"></textarea>
+            <textarea id="message" rows="4" readonly disabled placeholder="选择正确的配置后显示命令" class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">@FFmpegCommand</textarea>
 
-        </div>
-
-        <div class="mt-2 p-6 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
-            <div class="mb-2 flex justify-between items-center">
-                <h5 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
-                    执行
-                </h5>
-                <i class="fa-solid fa-play text-4xl text-gray-500 dark:text-gray-400"></i>
-            </div>
-
-            <div>当前状态</div>
         </div>
     }
 
