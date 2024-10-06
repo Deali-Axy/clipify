@@ -47,9 +47,7 @@ public class VideoService {
             HWAccelOutputFormatCopy = true,
             MapMetadata = true,
         };
-
-        Console.WriteLine($"命令: {opt}");
-
+        
         if (!File.Exists(outputPath)) {
             await FFmpeg.GetThumbnailAsync(inputFile, outputFile, cancellationToken ?? CancellationToken.None);
         }

@@ -13,6 +13,7 @@
       <PackageReference Include="Microsoft.AspNetCore.Components.WebView.WindowsForms" Version="8.0.91" />
       <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
       <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0" />
+      <PackageReference Include="MudBlazor" Version="7.8.0" />
       <PackageReference Include="xFFmpeg.NET" Version="7.2.0" />
     </ItemGroup>
 

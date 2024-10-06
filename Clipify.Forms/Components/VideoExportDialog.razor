@@ -1,0 +1,68 @@
+﻿@using FFmpeg.NET.Events
+@inject VideoService VideoService
+@inject IDialogService MudDialogService
+
+<MudDialog>
+    <DialogContent>
+        <div class="flex items-center gap-4">
+            <MudProgressCircular Color="Color.Secondary" Indeterminate="true"/>
+            <div class="my-4">正在导出视频</div>
+        </div>
+        <MudProgressLinear Color="Color.Primary" Striped="true" Size="Size.Large" Value="75" Class="my-7"/>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="Ok">OK</MudButton>
+    </DialogActions>
+</MudDialog>
+
+
+@code {
+    [CascadingParameter] private MudDialogInstance MudDialog { get; set; }
+
+    public double Progress { get; set; }
+
+    private void Ok() => MudDialog.Close(DialogResult.Ok(true));
+
+    private void OnProgress(object? sender, ConversionProgressEventArgs e) {
+        Console.WriteLine("Bitrate: {0}", e.Bitrate);
+        Console.WriteLine("Fps: {0}", e.Fps);
+        Console.WriteLine("Frame: {0}", e.Frame);
+        Console.WriteLine("ProcessedDuration: {0}", e.ProcessedDuration);
+        Console.WriteLine("Size: {0} kb", e.SizeKb);
+        Console.WriteLine("TotalDuration: {0}\n", e.TotalDuration);
+
+        // 计算进度百分比
+        Progress = (e.ProcessedDuration.TotalSeconds / e.TotalDuration.TotalSeconds) * 100;
+    }
+
+    private void OnData(object? sender, ConversionDataEventArgs e) {
+        Console.WriteLine("[onData]{0}", e.Data);
+    }
+
+    private void OnComplete(object? sender, ConversionCompleteEventArgs e) {
+        Console.WriteLine("Completed conversion");
+    }
+
+    private void OnError(object? sender, ConversionErrorEventArgs e) {
+        Console.WriteLine("Error: {0}\n{1}", e.Exception.ExitCode, e.Exception.InnerException);
+    }
+
+    public async Task ExportVideo(string arguments, CancellationToken? cancellationToken = null) {
+        VideoService.FFmpeg.Progress += OnProgress;
+        VideoService.FFmpeg.Data += OnData;
+        VideoService.FFmpeg.Complete += OnComplete;
+        VideoService.FFmpeg.Error += OnError;
+
+        Console.WriteLine($"执行命令：{arguments}");
+        await VideoService.FFmpeg.ExecuteAsync(arguments, cancellationToken ?? CancellationToken.None);
+
+        await MudDialogService.ShowAsync<VideoExportDialog>(
+            "导出视频",
+            new DialogOptions {
+                FullWidth = true,
+                BackdropClick = false,
+            }
+        );
+    }
+
+}
