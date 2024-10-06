@@ -24,9 +24,10 @@ public partial class FormMain : Form {
 #endif
 
         services.AddSingleton(this);
+        services.AddScoped<IHostingEnvironment, HostingEnvironment>();
         services.AddScoped<DialogService>();
         services.AddScoped<VideoService>();
-
+        
         blazorWebView1.HostPage = "wwwroot\\index.html";
         blazorWebView1.Services = services.BuildServiceProvider();
         blazorWebView1.RootComponents.Add<App>("#app");

@@ -5,8 +5,10 @@ using InputFile = FFmpeg.NET.InputFile;
 namespace Clipify.Forms.Pages;
 
 public partial class ExtractAudio {
-    public string? FilePath { get; set; }
+    public string? VideoPath { get; set; }
     public string? OutputDir { get; set; }
+    public string? Thumbnail { get; set; }
+    public string OutputFormat { get; set; } = "mp4";
     public MetaData? MetaData { get; set; }
 
     protected override Task OnInitializedAsync() {
@@ -24,8 +26,12 @@ public partial class ExtractAudio {
     }
 
     private async Task UpdateSelectedFile(string path) {
-        FilePath = path;
-        MetaData = await _videoService.FFmpeg.GetMetaDataAsync(new InputFile(FilePath), CancellationToken.None);
+        VideoPath = path;
+        MetaData = await _videoService.FFmpeg.GetMetaDataAsync(new InputFile(VideoPath), CancellationToken.None);
+        if (MetaData.VideoData != null) {
+            Thumbnail = await _videoService.GenerateThumbnailAsync(VideoPath);
+        }
+
         await InvokeAsync(StateHasChanged);
     }
 
