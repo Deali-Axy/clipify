@@ -28,11 +28,11 @@ partial class FormMain {
     {
         blazorWebView1 = new Microsoft.AspNetCore.Components.WebView.WindowsForms.BlazorWebView();
         openFileDialog = new OpenFileDialog();
+        folderBrowserDialog = new FolderBrowserDialog();
         SuspendLayout();
         // 
         // blazorWebView1
         // 
-        blazorWebView1.AllowDrop = true;
         blazorWebView1.Dock = DockStyle.Fill;
         blazorWebView1.Location = new Point(0, 0);
         blazorWebView1.Name = "blazorWebView1";
@@ -64,4 +64,5 @@ partial class FormMain {
 
     private Microsoft.AspNetCore.Components.WebView.WindowsForms.BlazorWebView blazorWebView1;
     public OpenFileDialog openFileDialog;
+    public FolderBrowserDialog folderBrowserDialog;
 }

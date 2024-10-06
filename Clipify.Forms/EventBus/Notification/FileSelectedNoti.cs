@@ -4,18 +4,18 @@ using MediatR;
 namespace Clipify.Forms.EventBus.Notification;
 
 public class FileSelectedNoti : INotification {
-    public string FilePath { get; set; }
+    public string SelectedPath { get; set; }
 }
 
 public class FileSelectedHandler : INotificationHandler<FileSelectedNoti> {
-    private readonly FileDialogService _fileDialogService;
+    private readonly DialogService _dialogService;
 
-    public FileSelectedHandler(FileDialogService fileDialogService) {
-        _fileDialogService = fileDialogService;
+    public FileSelectedHandler(DialogService dialogService) {
+        _dialogService = dialogService;
     }
 
     public Task Handle(FileSelectedNoti notification, CancellationToken cancellationToken) {
-        _fileDialogService.NotifyFileSelected(notification.FilePath);
+        _dialogService.NotifyFileSelected(notification.SelectedPath);
         return Task.CompletedTask;
     }
 }

@@ -2,7 +2,7 @@
 @using Clipify.Forms.Extensions
 @using Microsoft.AspNetCore.Components.Forms
 
-@inject FileDialogService _fileDialogService
+@inject DialogService DialogService
 @inject VideoService _videoService
 
 <PageTitle>提取音频 - Clipify</PageTitle>
@@ -54,13 +54,24 @@
                             视频信息
                         </h3>
 
-                        <ul class="max-w-md space-y-1 text-gray-500 list-none list-inside dark:text-gray-400">
-                            <li>格式: @MetaData.VideoData.Format</li>
-                            <li>FPS: @MetaData.VideoData.Fps</li>
-                            <li>颜色: @MetaData.VideoData.ColorModel</li>
-                            <li>分辨率: @MetaData.VideoData.FrameSize</li>
-                            <li>码率: @MetaData.VideoData.BitRateKbs</li>
-                        </ul>
+                        @if (MetaData.VideoData != null) {
+                            <ul class="max-w-md space-y-1 text-gray-500 list-none list-inside dark:text-gray-400">
+                                <li>格式: @MetaData.VideoData.Format</li>
+                                <li>FPS: @MetaData.VideoData.Fps</li>
+                                <li>颜色: @MetaData.VideoData.ColorModel</li>
+                                <li>分辨率: @MetaData.VideoData.FrameSize</li>
+                                <li>码率: @MetaData.VideoData.BitRateKbs</li>
+                            </ul>
+                        }
+                        else {
+                            <div class="max-w-md p-4 bg-white border border-gray-200 flex items-center justify-center">
+                                <div class="flex flex-col items-center gap-4 text-gray-500 text-sm">
+                                    <i class="fa-regular fa-face-laugh-squint text-3xl"></i>
+                                    <div>无法获取视频信息</div>
+                                </div>
+                            </div>
+                        }
+
                     </div>
 
                     <div>
@@ -68,18 +79,29 @@
                             <i class="fa-solid fa-headphones"></i>
                             音频信息
                         </h3>
-
-                        <ul class="max-w-md space-y-1 text-gray-500 list-none list-inside dark:text-gray-400">
-                            <li>格式: @MetaData.AudioData.Format</li>
-                            <li>采样率: @MetaData.AudioData.SampleRate</li>
-                            <li>声道: @MetaData.AudioData.ChannelOutput</li>
-                            <li>码率: @MetaData.AudioData.BitRateKbs</li>
-                        </ul>
+                        
+                        @if (MetaData.AudioData != null) {
+                            <ul class="max-w-md space-y-1 text-gray-500 list-none list-inside dark:text-gray-400">
+                                <li>格式: @MetaData.AudioData.Format</li>
+                                <li>采样率: @MetaData.AudioData.SampleRate</li>
+                                <li>声道: @MetaData.AudioData.ChannelOutput</li>
+                                <li>码率: @MetaData.AudioData.BitRateKbs</li>
+                            </ul>
+                        }
+                        else {
+                            <div class="max-w-md p-4 bg-white border border-gray-200 flex items-center justify-center">
+                                <div class="flex flex-col items-center gap-4 text-gray-500 text-sm">
+                                    <i class="fa-regular fa-face-laugh-squint text-3xl"></i>
+                                    <div>无法获取音频信息</div>
+                                </div>
+                            </div>
+                        }
+                        
                     </div>
                 </div>
             }
         </div>
-        
+
         <div class="mt-2 p-6 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
             <div class="mb-2 flex justify-between items-center">
                 <h5 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
@@ -91,8 +113,24 @@
             <div class="grid grid-cols-3 gap-2">
                 <div class="col-span-2">
                     <div>
-                        <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white" for="file_input">保存目录</label>
-                        <input class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400" id="file_input" type="file">
+                        <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white" for="output-dir">保存目录</label>
+                        <form class="flex items-center">
+                            <div class="relative w-full">
+                                <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+                                    <i class="fa-regular fa-folder text-gray-500 dark:text-gray-400"></i>
+                                </div>
+                                <input type="text" id="output-dir"
+                                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5  dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                                       placeholder="请选择保存目录"
+                                       @bind="OutputDir"
+                                       required/>
+                            </div>
+                            <button type="button" @onclick="OpenDirDialog"
+                                    class="p-2.5 ms-2 text-sm font-medium text-white bg-blue-700 rounded-lg border border-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                                <i class="fa-regular fa-folder-open"></i>
+                                <span class="sr-only">Search</span>
+                            </button>
+                        </form>
                     </div>
                 </div>
 

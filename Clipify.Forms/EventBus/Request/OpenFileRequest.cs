@@ -18,10 +18,11 @@ public class OpenFileHandler : IRequestHandler<OpenFileRequest, string> {
         var result = _formMain.openFileDialog.ShowDialog();
         
         if (result == DialogResult.OK) {
+            var path = _formMain.openFileDialog.FileName;
             _mediator.Publish(new FileSelectedNoti {
-                FilePath = _formMain.openFileDialog.FileName
+                SelectedPath = path
             }, cancellationToken);
-            return Task.FromResult(_formMain.openFileDialog.FileName);
+            return Task.FromResult(path);
         }
 
         return Task.FromResult("");

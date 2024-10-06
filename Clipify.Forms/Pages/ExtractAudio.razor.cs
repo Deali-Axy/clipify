@@ -6,20 +6,32 @@ namespace Clipify.Forms.Pages;
 
 public partial class ExtractAudio {
     public string? FilePath { get; set; }
+    public string? OutputDir { get; set; }
     public MetaData? MetaData { get; set; }
 
     protected override Task OnInitializedAsync() {
-        _fileDialogService.OnFileSelected += UpdateSelectedFile;
+        DialogService.OnFileSelected += UpdateSelectedFile;
+        DialogService.OnDirSelected += UpdateSelectedDir;
         return base.OnInitializedAsync();
     }
 
     private async Task OpenFileDialog() {
-        await _fileDialogService.OpenFileDialogAsync();
+        await DialogService.OpenFileAsync();
     }
 
-    private async void UpdateSelectedFile(string fileName) {
-        FilePath = fileName;
+    private async Task OpenDirDialog() {
+        await DialogService.OpenDirAsync();
+    }
+
+    private async Task UpdateSelectedFile(string path) {
+        FilePath = path;
         MetaData = await _videoService.FFmpeg.GetMetaDataAsync(new InputFile(FilePath), CancellationToken.None);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task UpdateSelectedDir(string path) {
+        OutputDir = path;
+        Console.WriteLine($"保存目录：{path}");
         await InvokeAsync(StateHasChanged);
     }
 

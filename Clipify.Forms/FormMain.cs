@@ -4,26 +4,31 @@ namespace Clipify.Forms;
 
 using Microsoft.AspNetCore.Components.WebView.WindowsForms;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 public partial class FormMain : Form {
-    private readonly ServiceCollection _services;
-
     public FormMain() {
         InitializeComponent();
 
-        _services = new ServiceCollection();
+        var services = new ServiceCollection();
+        services.AddLogging(c => {
+            c.AddDebug();
+            // Enable maximum logging for BlazorWebView
+            c.AddFilter("Microsoft.AspNetCore.Components.WebView", LogLevel.Trace);
+        });
 
+        services.AddMediatR(cfg => { cfg.RegisterServicesFromAssemblyContaining<FormMain>(); });
+        services.AddWindowsFormsBlazorWebView();
 #if DEBUG
-        _services.AddBlazorWebViewDeveloperTools();
+        services.AddBlazorWebViewDeveloperTools();
 #endif
-        _services.AddMediatR(cfg => { cfg.RegisterServicesFromAssemblyContaining<FormMain>(); });
-        _services.AddWindowsFormsBlazorWebView();
-        _services.AddSingleton(this);
-        _services.AddScoped<FileDialogService>();
-        _services.AddScoped<VideoService>();
+
+        services.AddSingleton(this);
+        services.AddScoped<DialogService>();
+        services.AddScoped<VideoService>();
 
         blazorWebView1.HostPage = "wwwroot\\index.html";
-        blazorWebView1.Services = _services.BuildServiceProvider();
+        blazorWebView1.Services = services.BuildServiceProvider();
         blazorWebView1.RootComponents.Add<App>("#app");
         // blazorWebView1.RootComponents.Add<Counter>("#app");
     }
