@@ -1,68 +1,91 @@
-﻿@using FFmpeg.NET.Events
-@inject VideoService VideoService
-@inject IDialogService MudDialogService
+﻿@using System.Text.RegularExpressions
+@using FFmpeg.NET
+@using FFmpeg.NET.Events
 
-<MudDialog>
-    <DialogContent>
-        <div class="flex items-center gap-4">
-            <MudProgressCircular Color="Color.Secondary" Indeterminate="true"/>
-            <div class="my-4">正在导出视频</div>
-        </div>
-        <MudProgressLinear Color="Color.Primary" Striped="true" Size="Size.Large" Value="75" Class="my-7"/>
-    </DialogContent>
-    <DialogActions>
-        <MudButton Color="Color.Primary" OnClick="Ok">OK</MudButton>
-    </DialogActions>
-</MudDialog>
+@inject VideoService VideoService
+
+
+<Modal Title="导出视频" Visible="_visible">
+    @switch (Status) {
+        case FFmpegStatus.Running:
+            <div class="flex items-center gap-4">
+                <MudProgressCircular Color="MudBlazor.Color.Secondary" Indeterminate="true"/>
+                <div>正在导出视频</div>
+            </div>
+            <MudProgressLinear Color="MudBlazor.Color.Primary" Striped="true" Size="Size.Large" Value="0" Class="my-7"/>
+            break;
+        case FFmpegStatus.Finish:
+            <div class="flex items-center gap-4">
+                <i class="fa-solid fa-circle-check text-green-600 text-4xl"></i>
+                <div>搞定！</div>
+            </div>
+            <div class="mt-6">已保存到 @OutputDir</div>
+            break;
+        case FFmpegStatus.Error:
+            <div class="flex items-center gap-4">
+                错误
+            </div>
+            break;
+        case FFmpegStatus.None:
+        default:
+            <div class="flex items-center gap-4">
+                空状态
+            </div>
+            break;
+    }
+</Modal>
 
 
 @code {
-    [CascadingParameter] private MudDialogInstance MudDialog { get; set; }
+    bool _visible = false;
+
+    public enum FFmpegStatus {
+        None,
+        Running,
+        Finish,
+        Error
+    }
 
     public double Progress { get; set; }
-
-    private void Ok() => MudDialog.Close(DialogResult.Ok(true));
+    public MetaData MetaData { get; set; }
+    public string OutputDir { get; set; }
+    public FFmpegStatus Status { get; set; } = FFmpegStatus.None;
 
     private void OnProgress(object? sender, ConversionProgressEventArgs e) {
-        Console.WriteLine("Bitrate: {0}", e.Bitrate);
-        Console.WriteLine("Fps: {0}", e.Fps);
-        Console.WriteLine("Frame: {0}", e.Frame);
-        Console.WriteLine("ProcessedDuration: {0}", e.ProcessedDuration);
-        Console.WriteLine("Size: {0} kb", e.SizeKb);
-        Console.WriteLine("TotalDuration: {0}\n", e.TotalDuration);
-
         // 计算进度百分比
-        Progress = (e.ProcessedDuration.TotalSeconds / e.TotalDuration.TotalSeconds) * 100;
+        Progress = (e.ProcessedDuration.TotalSeconds / MetaData.Duration.TotalSeconds) * 100;
     }
 
     private void OnData(object? sender, ConversionDataEventArgs e) {
-        Console.WriteLine("[onData]{0}", e.Data);
+        Console.WriteLine("[onData] {0}", e.Data);
     }
 
     private void OnComplete(object? sender, ConversionCompleteEventArgs e) {
         Console.WriteLine("Completed conversion");
+        Status = FFmpegStatus.Finish;
     }
 
     private void OnError(object? sender, ConversionErrorEventArgs e) {
         Console.WriteLine("Error: {0}\n{1}", e.Exception.ExitCode, e.Exception.InnerException);
+        Status = FFmpegStatus.Error;
     }
 
-    public async Task ExportVideo(string arguments, CancellationToken? cancellationToken = null) {
+    public async Task ExportVideo(MetaData metaData, string outputDir, string arguments, CancellationToken? cancellationToken = null) {
+        _visible = true;
+
+        MetaData = metaData;
+        OutputDir = outputDir;
+
         VideoService.FFmpeg.Progress += OnProgress;
         VideoService.FFmpeg.Data += OnData;
         VideoService.FFmpeg.Complete += OnComplete;
         VideoService.FFmpeg.Error += OnError;
 
         Console.WriteLine($"执行命令：{arguments}");
-        await VideoService.FFmpeg.ExecuteAsync(arguments, cancellationToken ?? CancellationToken.None);
+        Status = FFmpegStatus.Finish;
+        await InvokeAsync(StateHasChanged);
 
-        await MudDialogService.ShowAsync<VideoExportDialog>(
-            "导出视频",
-            new DialogOptions {
-                FullWidth = true,
-                BackdropClick = false,
-            }
-        );
+        // await VideoService.FFmpeg.ExecuteAsync(arguments, cancellationToken ?? CancellationToken.None);
     }
 
 }

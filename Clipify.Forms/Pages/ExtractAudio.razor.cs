@@ -1,8 +1,6 @@
 ﻿using System.Diagnostics;
 using Clipify.Forms.Components;
 using FFmpeg.NET;
-using Microsoft.AspNetCore.Components.Forms;
-using MudBlazor;
 using InputFile = FFmpeg.NET.InputFile;
 
 namespace Clipify.Forms.Pages;
@@ -10,11 +8,29 @@ namespace Clipify.Forms.Pages;
 public partial class ExtractAudio {
     public string? VideoPath { get; set; }
     public string? OutputDir { get; set; }
+
+    public string? OutputPath {
+        get {
+            if (string.IsNullOrWhiteSpace(OutputDir)) {
+                return null;
+            }
+
+            var filename = $"{Path.GetFileNameWithoutExtension(VideoPath)}.{OutputFormat}";
+            var path = Path.Combine(OutputDir, filename);
+            return path;
+        }
+    }
+
     public string? Thumbnail { get; set; }
     public string OutputFormat { get; set; } = "mp4";
     public MetaData? MetaData { get; set; }
 
-    public string? FFmpegCommand => $"ffmpeg {GenerateFFmpegArguments()}";
+    public string? FFmpegCommand {
+        get {
+            var args = GenerateFFmpegArguments();
+            return string.IsNullOrWhiteSpace(args) ? null : $"ffmpeg {args}";
+        }
+    }
 
     public VideoExportDialog ExportDialogRef { get; set; }
 
@@ -29,10 +45,7 @@ public partial class ExtractAudio {
             return null;
         }
 
-        var filename = $"{Path.GetFileNameWithoutExtension(VideoPath)}.{OutputFormat}";
-        var path = Path.Combine(OutputDir, filename);
-        
-        return $"-y -hide_banner -i \"{VideoPath}\" -q:a 0 -map a \"{path}\"";
+        return $"-y -hide_banner -progress pipe:1 -i \"{VideoPath}\" -q:a 0 -map a \"{OutputPath}\"";
     }
 
     private async Task OpenFileDialog() {
@@ -45,19 +58,19 @@ public partial class ExtractAudio {
 
     private void OpenFile() {
         if (string.IsNullOrWhiteSpace(VideoPath)) {
-            Snackbar.Add("请先打开文件！", Severity.Error);
+            MsgService.Error("请先打开文件！");
             return;
         }
 
         if (!Path.Exists(VideoPath)) {
-            Snackbar.Add("文件不存在！", Severity.Error);
+            MsgService.Error("文件不存在！");
             return;
         }
 
         Process.Start(new ProcessStartInfo(VideoPath) {
             UseShellExecute = true
         });
-        Snackbar.Add($"打开文件: {VideoPath}", Severity.Info);
+        MsgService.Info($"打开文件: {VideoPath}");
     }
 
     private async Task UpdateSelectedFile(string path) {
@@ -78,8 +91,26 @@ public partial class ExtractAudio {
 
     private async Task ExportVideo(CancellationToken? cancellationToken = null) {
         var args = GenerateFFmpegArguments();
-        if (!string.IsNullOrWhiteSpace(args)) {
-            await ExportDialogRef.ExportVideo(args, cancellationToken);   
+        if (string.IsNullOrWhiteSpace(VideoPath)) {
+            await MsgService.Error("未选择文件");
+            return;
         }
+
+        if (string.IsNullOrWhiteSpace(OutputDir)) {
+            await MsgService.Error("没有选择输出目录");
+            return;
+        }
+
+        if (MetaData == null) {
+            await MsgService.Error("视频读取失败");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(args)) {
+            await MsgService.Error("无法生成ffmpeg命令参数");
+            return;
+        }
+
+        await ExportDialogRef.ExportVideo(MetaData, OutputDir, args, cancellationToken);
     }
 }

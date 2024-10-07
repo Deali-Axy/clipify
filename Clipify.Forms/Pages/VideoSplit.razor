@@ -1,7 +1,18 @@
 ﻿@page "/video-split"
 
+@inject IMessageService _message
+
+
 <h3>视频剪辑</h3>
 
+<Button Type="primary" OnClick="OnClick">Hello World!</Button>
+
+
 @code {
-    
+
+    private void OnClick() {
+        Console.WriteLine("onclick");
+        _message.Info("This is a normal message");
+    }
+
 }

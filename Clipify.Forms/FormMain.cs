@@ -1,5 +1,4 @@
 ﻿using Clipify.Forms.Services;
-using MudBlazor.Services;
 
 namespace Clipify.Forms;
 
@@ -17,10 +16,8 @@ public partial class FormMain : Form {
             // Enable maximum logging for BlazorWebView
             c.AddFilter("Microsoft.AspNetCore.Components.WebView", LogLevel.Trace);
         });
-
-        services.AddMudServices(config => {
-            config.SnackbarConfiguration.PreventDuplicates = false;
-        });
+        
+        services.AddAntDesign();
         services.AddMediatR(cfg => { cfg.RegisterServicesFromAssemblyContaining<FormMain>(); });
         services.AddWindowsFormsBlazorWebView();
 #if DEBUG
