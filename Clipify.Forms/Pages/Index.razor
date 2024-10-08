@@ -1,5 +1,8 @@
 @page "/"
 
+@inject IMessageService MsgService
+@inject INotificationService NotiService
+
 <div class="container p-4">
     <div class="flex items-center justify-center gap-2 mt-4 text-gray-600">
         <i class="fa-regular fa-hand-scissors text-6xl"></i>
@@ -8,13 +11,76 @@
     <div class="text-center text-gray-600 mt-4">
         <p>Clipify 是一个基于 Blazor Hybrid 技术开发的简单流畅的视频编辑工具。</p>
         <p>专为提供快速、轻松的视频剪辑体验而设计。</p>
-        <div class="mt-4">
-            <a href="https://github.com/deali-Axy/clipify" class="inline-flex items-center justify-center py-2 px-4 text-base font-medium text-gray-500 rounded-lg bg-gray-50 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:text-white">
-                <i class="fa-brands fa-github text-xl me-3"></i>
-                <span class="w-full">项目主页</span>
-                <i class="fa-solid fa-arrow-right ms-2"></i>
-            </a>
+        <div class="mt-4 flex items-center justify-center gap-2">
+            @foreach (var link in Links) {
+                <a href="@link.Href" class="inline-flex items-center justify-center py-2 px-4 text-base font-medium text-gray-500 rounded-lg bg-gray-50 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:text-white">
+                    <i class="@link.IconClass text-xl me-3"></i>
+                    <span class="w-full">@link.Name</span>
+                    @* <i class="fa-solid fa-arrow-right ms-2"></i> *@
+                </a>
+            }
         </div>
+    </div>
+    <div class="py-3 mt-4 flex items-center text-sm text-gray-800 before:flex-1 before:border-t before:border-gray-200 before:me-6 after:flex-1 after:border-t after:border-gray-200 after:ms-6 dark:text-white dark:before:border-neutral-600 dark:after:border-neutral-600">Features | 主要功能</div>
+    <div class="flex flex-wrap justify-center items-center gap-4 mt-4">
+        @foreach (var feature in Features) {
+            if (string.IsNullOrWhiteSpace(feature.Href)) {
+                <a href="#" @onclick="() => FeatureInDev(feature)"
+                   class="flex flex-col gap-4 items-center max-w-sm px-10 pt-8 pb-4 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
+                    <i class="@feature.IconClass text-5xl"></i>
+                    <h5 class="text-xl tracking-tight text-gray-900 dark:text-white">@feature.Name</h5>
+                </a>
+            }
+            else {
+                <a href="@feature.Href" class="flex flex-col gap-4 items-center max-w-sm px-10 pt-8 pb-4 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
+                    <i class="@feature.IconClass text-5xl"></i>
+                    <h5 class="text-xl tracking-tight text-gray-900 dark:text-white">@feature.Name</h5>
+                </a>
+            }
+        }
     </div>
 </div>
 
+@code{
+
+    public class ActionLink {
+        public string IconClass { get; set; }
+        public string Name { get; set; }
+        public string Href { get; set; }
+    }
+
+    public class FeatureCard {
+        public string IconClass { get; set; }
+        public string Name { get; set; }
+        public string? Href { get; set; }
+    }
+
+    public List<ActionLink> Links { get; set; } = new List<ActionLink> {
+        new ActionLink { IconClass = "fa-brands fa-github", Name = "项目主页", Href = "https://github.com/deali-Axy/clipify" },
+        new ActionLink { IconClass = "fa-solid fa-house", Name = "CodeLab", Href = "https://deali.cn" },
+        new ActionLink { IconClass = "fa-solid fa-blog", Name = "博客", Href = "http://blog.deali.cn" },
+    };
+
+    public List<FeatureCard> Features { get; set; } = new List<FeatureCard> {
+        new FeatureCard { IconClass = "fa-solid fa-scissors", Name = "视频分割", Href = RouterMap.VideoSplit },
+        new FeatureCard { IconClass = "fa-solid fa-music", Name = "音频提取", Href = RouterMap.ExtractAudio },
+        new FeatureCard { IconClass = "fa-solid fa-hand-scissors", Name = "片段裁剪" },
+        new FeatureCard { IconClass = "fa-solid fa-eraser", Name = "片段移除" },
+        new FeatureCard { IconClass = "fa-regular fa-object-group", Name = "视频合并" },
+        new FeatureCard { IconClass = "fa-regular fa-closed-captioning", Name = "字幕识别" },
+        new FeatureCard { IconClass = "fa-solid fa-language", Name = "字幕翻译" },
+        new FeatureCard { IconClass = "fa-solid fa-sheet-plastic", Name = "水印添加" },
+        new FeatureCard { IconClass = "fa-solid fa-download", Name = "视频下载" },
+        new FeatureCard { IconClass = "fa-solid fa-radio", Name = "博客采集" },
+    };
+
+    private async Task FeatureInDev(FeatureCard feature) {
+        RenderFragment customIcon = @<i class="@feature.IconClass text-2xl text-blue-500"></i>;
+        await NotiService.Open(new NotificationConfig {
+            Message = $"{feature.Name} - Clipify Feature",
+            Description = $"{feature.Name}功能正在开发中，敬请期待！",
+            Icon = customIcon
+        });
+    }
+
+}
