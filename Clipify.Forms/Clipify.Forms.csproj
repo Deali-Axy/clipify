@@ -18,7 +18,23 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="wwwroot\temp\thumbnails\" />
+      <Compile Remove="wwwroot\temp\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <EmbeddedResource Remove="wwwroot\temp\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Content Remove="wwwroot\temp\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Remove="wwwroot\temp\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <_ContentIncludedByDefault Remove="wwwroot\temp" />
     </ItemGroup>
 
 </Project>
