@@ -190,23 +190,23 @@
         <VideoExportDialog @ref="ExportDialogRef"/>
 
         <div class="flex items-center gap-2 fixed bottom-5 right-5">
-            <Tooltip Title="重新选择">
-                <Button
-                    Size="large"
-                    Type="@ButtonType.Primary"
-                    Shape="@ButtonShape.Circle"
-                    Icon="@IconType.Outline.PaperClip"
-                    OnClick="() => VideoPath = string.Empty"/>
-            </Tooltip>
-            <Tooltip Title="导出视频">
-                <Button
-                    Size="large"
-                    Type="@ButtonType.Primary"
-                    Shape="@ButtonShape.Circle"
-                    Icon="@IconType.Fill.PlayCircle"
-                    Disabled="string.IsNullOrWhiteSpace(GenerateFFmpegArguments())"
-                    OnClick="async () => await ExportVideo()"/>
-            </Tooltip>
+            <Button
+                Size="large"
+                Type="@ButtonType.Default" Danger
+                Shape="@ButtonShape.Round"
+                OnClick="() => VideoPath = string.Empty">
+                <i class="fa-solid fa-cash-register me-2"></i>
+                重新选择
+            </Button>
+            <Button
+                Size="large"
+                Type="@ButtonType.Primary"
+                Shape="@ButtonShape.Round"
+                Disabled="string.IsNullOrWhiteSpace(GenerateFFmpegArguments())"
+                OnClick="async () => await ExportVideo()">
+                <i class="fa-solid fa-play me-2"></i>
+                导出视频
+            </Button>
         </div>
     }
 
