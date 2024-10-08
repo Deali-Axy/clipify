@@ -21,21 +21,25 @@
             }
         </div>
     </div>
-    <div class="py-3 mt-4 flex items-center text-sm text-gray-800 before:flex-1 before:border-t before:border-gray-200 before:me-6 after:flex-1 after:border-t after:border-gray-200 after:ms-6 dark:text-white dark:before:border-neutral-600 dark:after:border-neutral-600">Features | 主要功能</div>
+    <div class="py-3 mt-4 flex items-center text-gray-500 before:flex-1 before:border-t before:border-gray-200 before:me-6 after:flex-1 after:border-t after:border-gray-200 after:ms-6 dark:text-white dark:before:border-neutral-600 dark:after:border-neutral-600">Features | 主要功能</div>
     <div class="flex flex-wrap justify-center items-center gap-4 mt-4">
         @foreach (var feature in Features) {
             if (string.IsNullOrWhiteSpace(feature.Href)) {
-                <a href="#" @onclick="() => FeatureInDev(feature)"
-                   class="flex flex-col gap-4 items-center max-w-sm px-10 pt-8 pb-4 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
-                    <i class="@feature.IconClass text-5xl"></i>
-                    <h5 class="text-xl tracking-tight text-gray-900 dark:text-white">@feature.Name</h5>
-                </a>
+                <Tooltip Placement="Placement.TopLeft" Title="@feature.Desc" ArrowPointAtCenter="true">
+                    <a href="#" @onclick="() => FeatureInDev(feature)"
+                       class="flex flex-col gap-4 items-center max-w-sm px-10 pt-8 pb-4 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
+                        <i class="@feature.IconClass text-5xl"></i>
+                        <h5 class="text-xl tracking-tight text-gray-900 dark:text-white">@feature.Name</h5>
+                    </a>
+                </Tooltip>
             }
             else {
-                <a href="@feature.Href" class="flex flex-col gap-4 items-center max-w-sm px-10 pt-8 pb-4 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
-                    <i class="@feature.IconClass text-5xl"></i>
-                    <h5 class="text-xl tracking-tight text-gray-900 dark:text-white">@feature.Name</h5>
-                </a>
+                <Tooltip Placement="Placement.TopLeft" Title="@feature.Desc" ArrowPointAtCenter="true">
+                    <a href="@feature.Href" class="flex flex-col gap-4 items-center max-w-sm px-10 pt-8 pb-4 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
+                        <i class="@feature.IconClass text-5xl"></i>
+                        <h5 class="text-xl tracking-tight text-gray-900 dark:text-white">@feature.Name</h5>
+                    </a>
+                </Tooltip>
             }
         }
     </div>
@@ -53,6 +57,7 @@
         public string IconClass { get; set; }
         public string Name { get; set; }
         public string? Href { get; set; }
+        public string? Desc { get; set; }
     }
 
     public List<ActionLink> Links { get; set; } = new List<ActionLink> {
@@ -62,16 +67,26 @@
     };
 
     public List<FeatureCard> Features { get; set; } = new List<FeatureCard> {
-        new FeatureCard { IconClass = "fa-solid fa-scissors", Name = "视频分割", Href = RouterMap.VideoSplit },
-        new FeatureCard { IconClass = "fa-solid fa-music", Name = "音频提取", Href = RouterMap.ExtractAudio },
-        new FeatureCard { IconClass = "fa-solid fa-hand-scissors", Name = "片段裁剪" },
-        new FeatureCard { IconClass = "fa-solid fa-eraser", Name = "片段移除" },
-        new FeatureCard { IconClass = "fa-regular fa-object-group", Name = "视频合并" },
-        new FeatureCard { IconClass = "fa-regular fa-closed-captioning", Name = "字幕识别" },
-        new FeatureCard { IconClass = "fa-solid fa-language", Name = "字幕翻译" },
-        new FeatureCard { IconClass = "fa-solid fa-sheet-plastic", Name = "水印添加" },
-        new FeatureCard { IconClass = "fa-solid fa-download", Name = "视频下载" },
-        new FeatureCard { IconClass = "fa-solid fa-radio", Name = "博客采集" },
+        new FeatureCard { IconClass = "fa-solid fa-scissors", Name = "视频分割", Href = RouterMap.VideoSplit, Desc = "将视频分割成多个片段" },
+        new FeatureCard { IconClass = "fa-solid fa-music", Name = "音频提取", Href = RouterMap.ExtractAudio, Desc = "从视频中提取音频" },
+        new FeatureCard { IconClass = "fa-solid fa-hand-scissors", Name = "片段裁剪", Desc = "裁剪视频的特定片段" },
+        new FeatureCard { IconClass = "fa-solid fa-eraser", Name = "片段移除", Desc = "移除不需要的视频片段" },
+        new FeatureCard { IconClass = "fa-regular fa-object-group", Name = "视频合并", Desc = "合并多个视频片段" },
+        new FeatureCard { IconClass = "fa-regular fa-closed-captioning", Name = "字幕识别", Desc = "识别并提取视频中的字幕" },
+        new FeatureCard { IconClass = "fa-solid fa-language", Name = "字幕翻译", Desc = "将字幕翻译成其他语言" },
+        new FeatureCard { IconClass = "fa-solid fa-sheet-plastic", Name = "水印添加", Desc = "为视频添加自定义水印" },
+        new FeatureCard { IconClass = "fa-solid fa-download", Name = "视频下载", Desc = "下载视频文件" },
+        new FeatureCard { IconClass = "fa-solid fa-radio", Name = "博客采集", Desc = "采集播客音频" },
+        new FeatureCard { IconClass = "fa-solid fa-sync-alt", Name = "视频旋转", Desc = "旋转视频角度" },
+        new FeatureCard { IconClass = "fa-solid fa-tachometer-alt", Name = "视频调速", Desc = "调整视频播放速度" },
+        new FeatureCard { IconClass = "fa-solid fa-crop-alt", Name = "视频裁剪", Desc = "裁剪视频画面尺寸" },
+        new FeatureCard { IconClass = "fa-solid fa-adjust", Name = "滤镜应用", Desc = "为视频添加视觉滤镜" },
+        new FeatureCard { IconClass = "fa-solid fa-compress-alt", Name = "视频压缩", Desc = "压缩视频文件大小" },
+        new FeatureCard { IconClass = "fa-solid fa-icons", Name = "背景音乐添加", Desc = "为视频添加背景音乐" },
+        new FeatureCard { IconClass = "fa-solid fa-expand-arrows-alt", Name = "分辨率调整", Desc = "调整视频分辨率" },
+        new FeatureCard { IconClass = "fa-solid fa-palette", Name = "颜色校正", Desc = "调整视频颜色和亮度" },
+        new FeatureCard { IconClass = "fa-solid fa-image", Name = "帧提取", Desc = "从视频中提取特定帧" },
+        new FeatureCard { IconClass = "fa-solid fa-play", Name = "视频预览", Desc = "预览视频内容" }
     };
 
     private async Task FeatureInDev(FeatureCard feature) {

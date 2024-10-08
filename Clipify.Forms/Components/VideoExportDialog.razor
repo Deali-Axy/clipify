@@ -5,69 +5,99 @@
 @inject VideoService VideoService
 
 
-<Modal Title="导出视频" Visible="_visible">
-    @switch (Status) {
-        case FFmpegStatus.Running:
+<Modal Title="导出视频" Visible="_visible"
+       OkButtonProps="new ButtonProps() { Disabled = !CanClose }"
+       CancelButtonProps="new ButtonProps() { Disabled = true }"
+       OnOk="() => _visible = false">
+    @switch (Status.Status) {
+        case StatusEnum.Running:
             <div class="flex items-center gap-4">
-                <MudProgressCircular Color="MudBlazor.Color.Secondary" Indeterminate="true"/>
+                <div role="status">
+                    <svg aria-hidden="true" class="inline w-10 h-10 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
+                        <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/>
+                    </svg>
+                    <span class="sr-only">Loading...</span>
+                </div>
                 <div>正在导出视频</div>
             </div>
-            <MudProgressLinear Color="MudBlazor.Color.Primary" Striped="true" Size="Size.Large" Value="0" Class="my-7"/>
+            <div class="mt-4">
+                <Progress Percent="@Status.Progress"></Progress>
+            </div>
             break;
-        case FFmpegStatus.Finish:
+        case StatusEnum.Finish:
             <div class="flex items-center gap-4">
                 <i class="fa-solid fa-circle-check text-green-600 text-4xl"></i>
                 <div>搞定！</div>
             </div>
             <div class="mt-6">已保存到 @OutputDir</div>
             break;
-        case FFmpegStatus.Error:
+        case StatusEnum.Error:
             <div class="flex items-center gap-4">
-                错误
+                <i class="fa-solid fa-triangle-exclamation text-red-500 text-4xl"></i>
+                <div>出错了</div>
             </div>
             break;
-        case FFmpegStatus.None:
+        case StatusEnum.None:
         default:
             <div class="flex items-center gap-4">
-                空状态
+                <i class="fa-regular fa-circle-question text-blue-500 text-4xl"></i>
+                <div>空状态</div>
             </div>
             break;
     }
+    <div class="py-3 mt-6 flex items-center text-gray-500 before:flex-1 before:border-t before:border-gray-200 before:me-6 after:flex-1 after:border-t after:border-gray-200 after:ms-6 dark:text-white dark:before:border-neutral-600 dark:after:border-neutral-600">状态信息</div>
+    <div class="text-gray-500 text-sm">@Status.Message</div>
 </Modal>
 
 
 @code {
     bool _visible = false;
 
-    public enum FFmpegStatus {
+    public class FFmpegStatus {
+        public StatusEnum Status { get; set; }
+        public string Message { get; set; }
+        public double Progress { get; set; } = 0;
+    }
+
+    public enum StatusEnum {
         None,
         Running,
         Finish,
         Error
     }
 
-    public double Progress { get; set; }
     public MetaData MetaData { get; set; }
     public string OutputDir { get; set; }
-    public FFmpegStatus Status { get; set; } = FFmpegStatus.None;
+    public FFmpegStatus Status { get; set; } = new() { Status = StatusEnum.None, Message = "没有任何操作" };
+    public bool CanClose => Status.Status != StatusEnum.Running;
 
-    private void OnProgress(object? sender, ConversionProgressEventArgs e) {
+    private async void OnProgress(object? sender, ConversionProgressEventArgs e) {
+        Status.Status = StatusEnum.Running;
         // 计算进度百分比
-        Progress = (e.ProcessedDuration.TotalSeconds / MetaData.Duration.TotalSeconds) * 100;
+        Status.Progress = Math.Round(e.ProcessedDuration.TotalSeconds / MetaData.Duration.TotalSeconds * 100, 2);
+        await InvokeAsync(StateHasChanged);
     }
 
-    private void OnData(object? sender, ConversionDataEventArgs e) {
+    private async void OnData(object? sender, ConversionDataEventArgs e) {
         Console.WriteLine("[onData] {0}", e.Data);
+        Status.Status = StatusEnum.Running;
+        Status.Message = $"正在导出视频, {e.Data}";
+        await InvokeAsync(StateHasChanged);
     }
 
-    private void OnComplete(object? sender, ConversionCompleteEventArgs e) {
+    private async void OnComplete(object? sender, ConversionCompleteEventArgs e) {
         Console.WriteLine("Completed conversion");
-        Status = FFmpegStatus.Finish;
+        Status.Status = StatusEnum.Finish;
+        Status.Message = "已完成操作";
+        await InvokeAsync(StateHasChanged);
     }
 
-    private void OnError(object? sender, ConversionErrorEventArgs e) {
+    private async void OnError(object? sender, ConversionErrorEventArgs e) {
         Console.WriteLine("Error: {0}\n{1}", e.Exception.ExitCode, e.Exception.InnerException);
-        Status = FFmpegStatus.Error;
+        Status.Status = StatusEnum.Error;
+        Status.Message = $"发生错误，ExitCode: {e.Exception.ExitCode}，错误信息: {e.Exception.Message}";
+        await InvokeAsync(StateHasChanged);
     }
 
     public async Task ExportVideo(MetaData metaData, string outputDir, string arguments, CancellationToken? cancellationToken = null) {
@@ -82,10 +112,12 @@
         VideoService.FFmpeg.Error += OnError;
 
         Console.WriteLine($"执行命令：{arguments}");
-        Status = FFmpegStatus.Finish;
         await InvokeAsync(StateHasChanged);
 
-        // await VideoService.FFmpeg.ExecuteAsync(arguments, cancellationToken ?? CancellationToken.None);
+        Status.Status = StatusEnum.Running;
+        Status.Message = "开始导出视频";
+
+        await VideoService.FFmpeg.ExecuteAsync(arguments, cancellationToken ?? CancellationToken.None);
     }
 
 }
