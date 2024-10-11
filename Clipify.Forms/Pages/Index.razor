@@ -3,7 +3,7 @@
 @inject IMessageService MsgService
 @inject INotificationService NotiService
 
-<div class="container p-4">
+<div class="py-8 px-4 border-2 border-gray-200 border-dashed rounded-lg dark:border-gray-700">
     <div class="flex items-center justify-center gap-2 mt-4 text-gray-600">
         <i class="fa-regular fa-hand-scissors text-6xl"></i>
         <span class="text-4xl">Clipify</span>
@@ -13,34 +13,34 @@
         <p>专为提供快速、轻松的视频剪辑体验而设计。</p>
         <div class="mt-4 flex items-center justify-center gap-2">
             @foreach (var link in Links) {
-                <a href="@link.Href" class="inline-flex items-center justify-center py-2 px-4 text-base font-medium text-gray-500 rounded-lg bg-gray-50 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:text-white">
-                    <i class="@link.IconClass text-xl me-3"></i>
-                    <span class="w-full">@link.Name</span>
-                    @* <i class="fa-solid fa-arrow-right ms-2"></i> *@
-                </a>
+            <a href="@link.Href" class="inline-flex items-center justify-center py-2 px-4 text-base font-medium text-gray-500 rounded-lg bg-gray-50 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:text-white">
+                <i class="@link.IconClass text-xl me-3"></i>
+                <span class="w-full">@link.Name</span>
+                @* <i class="fa-solid fa-arrow-right ms-2"></i> *@
+            </a>
             }
         </div>
     </div>
     <div class="py-3 mt-4 flex items-center text-gray-500 before:flex-1 before:border-t before:border-gray-200 before:me-6 after:flex-1 after:border-t after:border-gray-200 after:ms-6 dark:text-white dark:before:border-neutral-600 dark:after:border-neutral-600">Features | 主要功能</div>
     <div class="flex flex-wrap justify-center items-center gap-4 mt-4">
         @foreach (var feature in Features) {
-            if (string.IsNullOrWhiteSpace(feature.Href)) {
-                <Tooltip Placement="Placement.TopLeft" Title="@feature.Desc" ArrowPointAtCenter="true">
-                    <a href="#" @onclick="() => FeatureInDev(feature)"
-                       class="flex flex-col gap-4 items-center max-w-sm px-10 pt-8 pb-4 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
-                        <i class="@feature.IconClass text-5xl"></i>
-                        <h5 class="text-xl tracking-tight text-gray-900 dark:text-white">@feature.Name</h5>
-                    </a>
-                </Tooltip>
-            }
-            else {
-                <Tooltip Placement="Placement.TopLeft" Title="@feature.Desc" ArrowPointAtCenter="true">
-                    <a href="@feature.Href" class="flex flex-col gap-4 items-center max-w-sm px-10 pt-8 pb-4 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
-                        <i class="@feature.IconClass text-5xl"></i>
-                        <h5 class="text-xl tracking-tight text-gray-900 dark:text-white">@feature.Name</h5>
-                    </a>
-                </Tooltip>
-            }
+        if (string.IsNullOrWhiteSpace(feature.Href)) {
+        <Tooltip Placement="Placement.TopLeft" Title="@feature.Desc" ArrowPointAtCenter="true">
+            <a href="#" @onclick="() => FeatureInDev(feature)"
+               class="flex flex-col gap-4 items-center max-w-sm px-10 pt-8 pb-4 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
+                <i class="@feature.IconClass text-5xl"></i>
+                <h5 class="text-xl tracking-tight text-gray-900 dark:text-white">@feature.Name</h5>
+            </a>
+        </Tooltip>
+        }
+        else {
+        <Tooltip Placement="Placement.TopLeft" Title="@feature.Desc" ArrowPointAtCenter="true">
+            <a href="@feature.Href" class="flex flex-col gap-4 items-center max-w-sm px-10 pt-8 pb-4 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
+                <i class="@feature.IconClass text-5xl"></i>
+                <h5 class="text-xl tracking-tight text-gray-900 dark:text-white">@feature.Name</h5>
+            </a>
+        </Tooltip>
+        }
         }
     </div>
 </div>

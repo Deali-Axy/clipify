@@ -45,7 +45,7 @@ public partial class ExtractAudio {
             return null;
         }
 
-        return $"-y -hide_banner -progress pipe:1 -i \"{VideoPath}\" -q:a 0 -map a \"{OutputPath}\"";
+        return $"-y -hide_banner -progress pipe:1 -i \"{VideoPath}\" -map a -c:a copy \"{OutputPath}\"";
     }
 
     private async Task OpenFileDialog() {
