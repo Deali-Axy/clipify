@@ -52,11 +52,49 @@ Clipify 使用了强大的 ffmpeg 引擎作为后台支持，允许用户通过�
 
 ## Build
 
-### tailwindcss
+### 前端资源
+
+前端资源使用 pnpm 和 gulp 管理，使用前先安装相应工具，建议使用 nodejs v20 版本。
+
+```bash
+npm i -g pnpm gulp-cli
+```
+
+### 安装依赖
+
+切换到 Clipify.Forms 目录下执行：
 
 ```bash
 cd Clipify.Forms
-npx tailwindcss -i .\wwwroot\css\tailwind.css -o .\wwwroot\css\tailwind.min.css --watch
+pnpm i
+```
+
+### 收集前端资源
+
+首先确保当前工作目录是 `Clipify.Forms` ，执行以下命令
+
+```bash
+gulp move
+```
+
+### tailwindcss
+
+本项目的样式使用 TailwindCSS ，使用以下命令生成。
+
+```bash
+cd Clipify.Forms
+npx tailwindcss -i .\wwwroot\css\tailwind.css -o .\wwwroot\css\tailwind.min.css
+```
+
+开发时可以加上 `-w` / `--watch` 参数，动态生成。
+
+### 客户端编译
+
+直接在IDE里构建和发布就行，也可以使用 dotnet cli 工具
+
+```bash
+dotnet restore
+dotnet publish -r win-x64 -c Release -p:PublishSingleFile=true
 ```
 
 ## 贡献
