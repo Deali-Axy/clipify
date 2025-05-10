@@ -1,10 +1,11 @@
 {
-  "name": "Clipify.Forms",
+  "name": "clipify.forms",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "tailwind:watch":"npx tailwindcss -i ./wwwroot/css/tailwind.css -o ./wwwroot/css/tailwind.min.css -w",
+    "tailwind:build":"npx tailwindcss -i ./wwwroot/css/tailwind.css -o ./wwwroot/css/tailwind.min.css -m"
   },
   "keywords": [],
   "author": "",
