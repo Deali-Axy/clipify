@@ -26,6 +26,7 @@ partial class FormMain {
     /// </summary>
     private void InitializeComponent()
     {
+        System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(FormMain));
         blazorWebView1 = new Microsoft.AspNetCore.Components.WebView.WindowsForms.BlazorWebView();
         openFileDialog = new OpenFileDialog();
         folderBrowserDialog = new FolderBrowserDialog();
@@ -35,8 +36,9 @@ partial class FormMain {
         // 
         blazorWebView1.Dock = DockStyle.Fill;
         blazorWebView1.Location = new Point(0, 0);
+        blazorWebView1.Margin = new Padding(6, 5, 6, 5);
         blazorWebView1.Name = "blazorWebView1";
-        blazorWebView1.Size = new Size(1264, 681);
+        blazorWebView1.Size = new Size(2528, 1242);
         blazorWebView1.StartPath = "/";
         blazorWebView1.TabIndex = 0;
         blazorWebView1.Text = "blazorWebView1";
@@ -50,10 +52,12 @@ partial class FormMain {
         // 
         // FormMain
         // 
-        AutoScaleDimensions = new SizeF(7F, 17F);
+        AutoScaleDimensions = new SizeF(14F, 31F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(1264, 681);
+        ClientSize = new Size(2528, 1242);
         Controls.Add(blazorWebView1);
+        Icon = (Icon)resources.GetObject("$this.Icon");
+        Margin = new Padding(6, 5, 6, 5);
         Name = "FormMain";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "Clipify - 简单流畅的视频编辑体验";

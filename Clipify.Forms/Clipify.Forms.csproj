@@ -6,6 +6,7 @@
         <Nullable>enable</Nullable>
         <UseWindowsForms>true</UseWindowsForms>
         <ImplicitUsings>enable</ImplicitUsings>
+        <ApplicationIcon>ClipifyLogo.ico</ApplicationIcon>
     </PropertyGroup>
 
     <ItemGroup>
@@ -35,6 +36,10 @@
 
     <ItemGroup>
       <_ContentIncludedByDefault Remove="wwwroot\temp" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Content Include="ClipifyLogo.ico" />
     </ItemGroup>
 
 </Project>
