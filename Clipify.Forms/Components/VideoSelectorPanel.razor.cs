@@ -9,9 +9,13 @@ public partial class VideoSelectorPanel {
     [Parameter] public string VideoPath { get; set; } = string.Empty;
 
     [Parameter] public bool ShowActions { get; set; } = true;
+
+    [Parameter] public MetaData? MetaData { get; set; }
+
+    [Parameter] public string? Thumbnail { get; set; }
     
-    private MetaData? MetaData { get; set; }
-    private string? Thumbnail { get; set; }
+    [Parameter]
+    public EventCallback<string> VideoPathChanged { get; set; }
 
     protected override async Task OnParametersSetAsync() {
         if (!string.IsNullOrWhiteSpace(VideoPath)) {
@@ -23,9 +27,11 @@ public partial class VideoSelectorPanel {
         DialogService.OnFileSelected += UpdateSelectedFile;
         return base.OnInitializedAsync();
     }
-    
+
     private async Task UpdateSelectedFile(string path) {
         VideoPath = path;
+        await VideoPathChanged.InvokeAsync(path);
+        await UpdateVideoInfo();
         await InvokeAsync(StateHasChanged);
     }
 
@@ -35,7 +41,7 @@ public partial class VideoSelectorPanel {
             Thumbnail = await VideoService.GenerateThumbnailAsync(VideoPath);
         }
     }
-    
+
     private async Task OpenFileDialog() {
         await DialogService.OpenFileAsync();
     }

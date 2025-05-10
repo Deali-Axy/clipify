@@ -21,7 +21,6 @@ public partial class ExtractAudio {
         }
     }
 
-    public string? Thumbnail { get; set; }
     public string OutputFormat { get; set; } = "mp4";
     public MetaData? MetaData { get; set; }
 

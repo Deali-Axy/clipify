@@ -9,7 +9,7 @@
 <div class="container mx-auto px-4 py-8">
     <h1 class="text-3xl font-bold mb-8">提取音频</h1>
 
-    <VideoSelectorPanel VideoPath="@VideoPath" ShowActions="true"/>
+    <VideoSelectorPanel @bind-VideoPath="@VideoPath" MetaData="MetaData"/>
 
     @if (!string.IsNullOrWhiteSpace(VideoPath)) {
         <div class="mt-2 p-6 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
