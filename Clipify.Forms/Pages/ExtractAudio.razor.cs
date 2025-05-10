@@ -35,7 +35,6 @@ public partial class ExtractAudio {
     public VideoExportDialog ExportDialogRef { get; set; }
 
     protected override Task OnInitializedAsync() {
-        DialogService.OnFileSelected += UpdateSelectedFile;
         DialogService.OnDirSelected += UpdateSelectedDir;
         return base.OnInitializedAsync();
     }
@@ -48,39 +47,8 @@ public partial class ExtractAudio {
         return $"-y -hide_banner -progress pipe:1 -i \"{VideoPath}\" -map a -c:a copy \"{OutputPath}\"";
     }
 
-    private async Task OpenFileDialog() {
-        await DialogService.OpenFileAsync();
-    }
-
     private async Task OpenDirDialog() {
         await DialogService.OpenDirAsync();
-    }
-
-    private void OpenFile() {
-        if (string.IsNullOrWhiteSpace(VideoPath)) {
-            MsgService.Error("请先打开文件！");
-            return;
-        }
-
-        if (!Path.Exists(VideoPath)) {
-            MsgService.Error("文件不存在！");
-            return;
-        }
-
-        Process.Start(new ProcessStartInfo(VideoPath) {
-            UseShellExecute = true
-        });
-        MsgService.Info($"打开文件: {VideoPath}");
-    }
-
-    private async Task UpdateSelectedFile(string path) {
-        VideoPath = path;
-        MetaData = await VideoService.FFmpeg.GetMetaDataAsync(new InputFile(VideoPath), CancellationToken.None);
-        if (MetaData.VideoData != null) {
-            Thumbnail = await VideoService.GenerateThumbnailAsync(VideoPath);
-        }
-
-        await InvokeAsync(StateHasChanged);
     }
 
     private async Task UpdateSelectedDir(string path) {
