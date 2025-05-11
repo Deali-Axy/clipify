@@ -1,9 +1,4 @@
 @using System.IO
-@using FFmpeg.NET
-
-@inject IMessageService MsgService
-@inject IDialogService DialogService
-@inject IVideoService VideoService
 
 @if (string.IsNullOrWhiteSpace(VideoPath)) {
     <div class="flex items-center justify-center w-full" @onclick="OpenFileDialog">

@@ -1,64 +1,177 @@
-﻿@inject IDialogService DialogService
+﻿@using AntDesign
 
-<nav class="bg-white border-gray-200 dark:bg-gray-900 fixed w-full z-20 top-0 start-0 border-b border-gray-200 dark:border-gray-600">
-    <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
-        <a href="/" class="flex items-center space-x-3 rtl:space-x-reverse">
-            <i class="fa-solid fa-scissors text-blue-600 text-2xl"></i>
-            <span class="self-center text-2xl font-semibold whitespace-nowrap dark:text-white">Clipify</span>
+<div
+    class="h-full flex flex-col bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700 transition-all duration-300 @(IsCollapsed ? "navbar-collapsed" : "navbar-expanded")"
+    style="@(IsCollapsed ? "width: 70px;" : "")">
+    <!-- 侧边栏头部 -->
+    <div class="px-3 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <a href="@RouterMap.Index" class="flex justify-center items-center @(IsCollapsed ? "w-full" : "")">
+            @if (IsCollapsed) {
+                <img src="images/ClipifyLogo.png" alt="Clipify" class="w-10 h-10">
+            }
+            else {
+                <img src="images/ClipifyLogoHorizontal.png" alt="Clipify Logo" class="w-40 h-auto">
+            }
         </a>
-        <div class="flex md:order-2 space-x-3 md:space-x-0 rtl:space-x-reverse">
-            <button @onclick="() => OpenVideoFile()" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
-                打开视频
+        <button @onclick="ToggleNavbar"
+                class="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white">
+            <i class="@(IsCollapsed ? "fa-solid fa-chevron-right" : "fa-solid fa-chevron-left")"></i>
+        </button>
+    </div>
+
+    <!-- 快速操作按钮 -->
+    <div class="px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+        @if (IsCollapsed) {
+            <button @onclick="OpenFileDialog"
+                    class="w-full flex items-center justify-center p-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:bg-blue-500 dark:hover:bg-blue-600 dark:focus:ring-blue-800">
+                <i class="fa-solid fa-file-video"></i>
             </button>
-            <button data-collapse-toggle="navbar-sticky" type="button" @onclick="ToggleMenu" class="inline-flex items-center p-2 w-10 h-10 justify-center text-sm text-gray-500 rounded-lg md:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600" aria-controls="navbar-sticky" aria-expanded="false">
-                <span class="sr-only">Open main menu</span>
-                <i class="fa-solid @(collapseNavMenu ? "fa-bars" : "fa-xmark") w-5 h-5"></i>
+        }
+        else {
+            <button @onclick="OpenFileDialog"
+                    class="w-full flex items-center justify-center py-2 px-4 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:bg-blue-500 dark:hover:bg-blue-600 dark:focus:ring-blue-800">
+                <i class="fa-solid fa-file-video me-2"></i>
+                打开视频文件
             </button>
-        </div>
-        <div class="@NavMenuCssClass items-center justify-between w-full md:flex md:w-auto md:order-1" id="navbar-sticky">
-            <ul class="flex flex-col p-4 md:p-0 mt-4 font-medium border border-gray-100 rounded-lg bg-gray-50 md:space-x-8 rtl:space-x-reverse md:flex-row md:mt-0 md:border-0 md:bg-white dark:bg-gray-800 md:dark:bg-gray-900 dark:border-gray-700">
+        }
+    </div>
+
+    <!-- 导航菜单 -->
+    <div class="flex-1 px-3 py-4 overflow-y-auto">
+        <div class="mb-2">
+            @if (!IsCollapsed) {
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2 dark:text-gray-400">
+                    基础功能
+                </p>
+            }
+            <ul class="space-y-1 font-medium">
                 <li>
-                    <NavLink href="" class="block py-2 px-3 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:hover:text-blue-700 md:p-0 md:dark:hover:text-blue-500 dark:text-white dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent dark:border-gray-700" Match="NavLinkMatch.All">
-                        <i class="fa-solid fa-house"></i>
-                        首页
+                    <NavLink href="@RouterMap.Index" ActiveClass="@GetActiveClass()" Match="NavLinkMatch.All"
+                             class="@(GetNavItemClass())">
+                        <i class="fa-solid fa-house text-lg text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400"></i>
+                        @if (!IsCollapsed) {
+                            <span class="ms-3">主页</span>
+                        }
                     </NavLink>
                 </li>
                 <li>
-                    <div class="px-4 py-2 text-gray-600 dark:text-gray-400 uppercase text-xs font-semibold">
-                        功能
-                    </div>
-                    <div>
-                        <NavLink class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all" href="videosplit" Match="NavLinkMatch.All">
-                            <i class="fa-solid fa-scissors text-blue-500 mr-3"></i>
-                            <span>视频剪辑</span>
-                        </NavLink>
-                        <NavLink class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all" href="extract-audio" Match="NavLinkMatch.All">
-                            <i class="fa-solid fa-music text-green-500 mr-3"></i>
-                            <span>提取音频</span>
-                        </NavLink>
-                        <NavLink class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all" href="audio-conversion" Match="NavLinkMatch.All">
-                            <i class="fa-solid fa-file-audio text-orange-500 mr-3"></i>
-                            <span>音频转换</span>
-                        </NavLink>
-                    </div>
+                    <NavLink href="@RouterMap.VideoSplit" ActiveClass="@GetActiveClass()"
+                             class="@(GetNavItemClass())">
+                        <i class="fa-solid fa-scissors text-lg text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400"></i>
+                        @if (!IsCollapsed) {
+                            <span class="flex-1 ms-3 whitespace-nowrap">视频分割</span>
+                            <span
+                                class="inline-flex items-center justify-center px-2 py-0.5 ms-3 text-xs font-medium text-blue-700 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-300">热门</span>
+                        }
+                    </NavLink>
+                </li>
+                <li>
+                    <NavLink href="@RouterMap.ExtractAudio" ActiveClass="@GetActiveClass()"
+                             class="@(GetNavItemClass())">
+                        <i class="fa-solid fa-music text-lg text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400"></i>
+                        @if (!IsCollapsed) {
+                            <span class="flex-1 ms-3 whitespace-nowrap">提取音频</span>
+                        }
+                    </NavLink>
+                </li>
+            </ul>
+        </div>
+
+        <div class="pt-4 mb-2">
+            @if (!IsCollapsed) {
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2 dark:text-gray-400">
+                    视频编辑
+                </p>
+            }
+            <ul class="space-y-1 font-medium">
+                <li>
+                    <NavLink href="#" @onclick='() => ShowFeatureInDev("片段裁剪")'
+                             class="@(GetDisabledNavItemClass())">
+                        <i class="fa-solid fa-hand-scissors text-lg text-gray-400 dark:text-gray-500"></i>
+                        @if (!IsCollapsed) {
+                            <span class="flex-1 ms-3 whitespace-nowrap">片段裁剪</span>
+                            <span
+                                class="inline-flex items-center justify-center px-2 py-0.5 ms-3 text-xs font-medium text-gray-600 bg-gray-200 rounded-full dark:bg-gray-700 dark:text-gray-400">开发中</span>
+                        }
+                    </NavLink>
+                </li>
+                <li>
+                    <NavLink href="#" @onclick='() => ShowFeatureInDev("片段移除")'
+                             class="@(GetDisabledNavItemClass())">
+                        <i class="fa-solid fa-eraser text-lg text-gray-400 dark:text-gray-500"></i>
+                        @if (!IsCollapsed) {
+                            <span class="flex-1 ms-3 whitespace-nowrap">片段移除</span>
+                            <span
+                                class="inline-flex items-center justify-center px-2 py-0.5 ms-3 text-xs font-medium text-gray-600 bg-gray-200 rounded-full dark:bg-gray-700 dark:text-gray-400">开发中</span>
+                        }
+                    </NavLink>
+                </li>
+                <li>
+                    <NavLink href="#" @onclick='() => ShowFeatureInDev("视频合并")'
+                             class="@(GetDisabledNavItemClass())">
+                        <i class="fa-regular fa-object-group text-lg text-gray-400 dark:text-gray-500"></i>
+                        @if (!IsCollapsed) {
+                            <span class="flex-1 ms-3 whitespace-nowrap">视频合并</span>
+                            <span
+                                class="inline-flex items-center justify-center px-2 py-0.5 ms-3 text-xs font-medium text-gray-600 bg-gray-200 rounded-full dark:bg-gray-700 dark:text-gray-400">开发中</span>
+                        }
+                    </NavLink>
+                </li>
+            </ul>
+        </div>
+        
+        <div class="pt-4 mb-2">
+            @if (!IsCollapsed) {
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2 dark:text-gray-400">
+                    高级功能
+                </p>
+            }
+            <ul class="space-y-1 font-medium">
+                <li>
+                    <NavLink href="#" @onclick='() => ShowFeatureInDev("字幕识别")'
+                             class="@(GetDisabledNavItemClass())">
+                        <i class="fa-regular fa-closed-captioning text-lg text-gray-400 dark:text-gray-500"></i>
+                        @if (!IsCollapsed) {
+                            <span class="flex-1 ms-3 whitespace-nowrap">字幕识别</span>
+                            <span
+                                class="inline-flex items-center justify-center px-2 py-0.5 ms-3 text-xs font-medium text-purple-700 bg-purple-100 rounded-full dark:bg-purple-900 dark:text-purple-300">Pro</span>
+                        }
+                    </NavLink>
+                </li>
+                <li>
+                    <NavLink href="#" @onclick='() => ShowFeatureInDev("视频压缩")'
+                             class="@(GetDisabledNavItemClass())">
+                        <i class="fa-solid fa-compress-alt text-lg text-gray-400 dark:text-gray-500"></i>
+                        @if (!IsCollapsed) {
+                            <span class="flex-1 ms-3 whitespace-nowrap">视频压缩</span>
+                            <span
+                                class="inline-flex items-center justify-center px-2 py-0.5 ms-3 text-xs font-medium text-gray-600 bg-gray-200 rounded-full dark:bg-gray-700 dark:text-gray-400">开发中</span>
+                        }
+                    </NavLink>
                 </li>
             </ul>
         </div>
     </div>
-</nav>
 
-@code {
-    private bool collapseNavMenu = true;
-    
-    private string NavMenuCssClass => collapseNavMenu ? "hidden" : "block";
-
-    private void ToggleMenu()
-    {
-        collapseNavMenu = !collapseNavMenu;
-    }
-    
-    private async Task OpenVideoFile()
-    {
-        await DialogService.OpenFileAsync();
-    }
-}
+    <!-- 底部用户区域 -->
+    <div class="px-3 py-2 border-t border-gray-200 dark:border-gray-700">
+        <div class="flex items-center @(IsCollapsed ? "justify-center" : "")">
+            <div class="flex-shrink-0">
+                <div
+                    class="@(IsCollapsed ? "w-10 h-10" : "w-12 h-12") rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                    <i class="fa-solid fa-user text-blue-600 dark:text-blue-400"></i>
+                </div>
+            </div>
+            @if (!IsCollapsed) {
+                <div class="ms-3">
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">当前用户</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">开源 & 免费</p>
+                </div>
+                <button type="button"
+                        class="ms-auto text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+                    <i class="fa-solid fa-cog"></i>
+                </button>
+            }
+        </div>
+    </div>
+</div>

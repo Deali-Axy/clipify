@@ -30,8 +30,8 @@ public static class MauiProgram
 		// 注册MAUI特定的服务实现
 		builder.Services.AddSingleton<IHostingEnvironment, HostingEnvironmentImpl>();
 		builder.Services.AddSingleton<IDialogService, DialogServiceImpl>();
-		builder.Services.AddSingleton<IVideoService, VideoServiceImpl>();
 		builder.Services.AddSingleton<IMessageService, MessageServiceImpl>();
+        builder.Services.AddTransient<IVideoService, VideoServiceImpl>();
 
 		return builder.Build();
 	}
