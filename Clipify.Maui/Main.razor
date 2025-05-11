@@ -1,0 +1,20 @@
+@namespace Clipify.Maui
+@using Microsoft.AspNetCore.Components.Routing
+
+<Router AppAssembly="@typeof(Main).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(Components.Layout.MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="@typeof(Components.Layout.MainLayout)">
+            <div class="container mx-auto px-4 py-8">
+                <h1 class="text-3xl font-bold mb-4">404 - 页面不存在</h1>
+                <p class="mb-4">抱歉，您访问的页面不存在。</p>
+                <a href="/" class="text-blue-500 hover:underline">
+                    <i class="fa-solid fa-home mr-2"></i>返回首页
+                </a>
+            </div>
+        </LayoutView>
+    </NotFound>
+</Router> 

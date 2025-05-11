@@ -16,19 +16,56 @@
 
     <div class="status-bar-safe-area"></div>
 
-    <div id="app">Loading...</div>
+    <div id="app">
+        <div style="display: flex; justify-content: center; align-items: center; height: 100vh; width: 100%;">
+            <div>
+                <h2>Clipify 正在加载...</h2>
+                <div style="display: flex; justify-content: center; margin-top: 20px;">
+                    <div style="border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 2s linear infinite;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <div id="blazor-error-ui" data-nosnippet>
-        An unhandled error has occurred.
-        <a href="" class="reload">Reload</a>
+    <div id="blazor-error-ui" data-nosnippet style="display: none;">
+        发生了一个未处理的错误。
+        <a href="" class="reload">重新加载</a>
         <a class="dismiss">🗙</a>
     </div>
 
-    <script src="_framework/blazor.webview.js" autostart="false"></script>
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #blazor-error-ui {
+            background-color: rgba(255, 255, 255, 0.85);
+            bottom: 0;
+            box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+            display: none;
+            left: 0;
+            padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+            position: fixed;
+            width: 100%;
+            z-index: 1000;
+        }
+        #blazor-error-ui .dismiss {
+            cursor: pointer;
+            position: absolute;
+            right: 0.75rem;
+            top: 0.5rem;
+        }
+    </style>
+
+    <script src="_framework/blazor.webview.js" autostart="true"></script>
     <script src="lib/flowbite/flowbite.min.js"></script>
     <script>
         window.initializeFlowbite = () => {
-            initFlowbite();
+            if (typeof initFlowbite === 'function') {
+                initFlowbite();
+            } else {
+                console.error("initFlowbite function not found");
+            }
         }
     </script>
 

@@ -21,7 +21,9 @@ public static class MauiProgram
 
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();
-		builder.Logging.AddDebug();
+		builder.Logging.AddDebug()
+				.AddFilter("Microsoft.AspNetCore.Components.WebView", LogLevel.Trace)
+				.AddConsole();
 #endif
 
 		// 注册Core项目中的服务

@@ -4,30 +4,48 @@
 
 <PageTitle>Clipify</PageTitle>
 
-<button data-drawer-target="logo-sidebar" data-drawer-toggle="logo-sidebar" aria-controls="logo-sidebar" type="button" class="inline-flex items-center p-2 mt-2 ms-3 text-sm text-gray-500 rounded-lg sm:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600">
-    <span class="sr-only">Open sidebar</span>
-    <svg class="w-6 h-6" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-        <path clip-rule="evenodd" fill-rule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm0 10.5a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5a.75.75 0 01-.75-.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10z"></path>
-    </svg>
-</button>
+<div class="page-container">
+    <button data-drawer-target="logo-sidebar" data-drawer-toggle="logo-sidebar" aria-controls="logo-sidebar" type="button" class="inline-flex items-center p-2 mt-2 ms-3 text-sm text-gray-500 rounded-lg sm:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600">
+        <span class="sr-only">打开侧边栏</span>
+        <svg class="w-6 h-6" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+            <path clip-rule="evenodd" fill-rule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm0 10.5a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5a.75.75 0 01-.75-.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10z"></path>
+        </svg>
+    </button>
 
-<aside id="logo-sidebar" class="fixed top-0 left-0 z-40 h-screen transition-transform -translate-x-full sm:translate-x-0 @(IsNavbarCollapsed ? "w-[70px]" : "w-64")" aria-label="Sidebar">
-    <NavMenu @bind-IsCollapsed="IsNavbarCollapsed" />
-</aside>
+    <aside id="logo-sidebar" class="fixed top-0 left-0 z-40 h-screen transition-transform -translate-x-full sm:translate-x-0 @(IsNavbarCollapsed ? "w-[70px]" : "w-64")" aria-label="Sidebar">
+        <NavMenu @bind-IsCollapsed="IsNavbarCollapsed" />
+    </aside>
 
-<div class="p-4 transition-all duration-300 @(IsNavbarCollapsed ? "sm:ml-[70px]" : "sm:ml-64")">
-    @Body
+    <div class="main-content p-4 transition-all duration-300 @(IsNavbarCollapsed ? "sm:ml-[70px]" : "sm:ml-64")">
+        @Body
+    </div>
 </div>
+
+<style>
+    .page-container {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        width: 100%;
+    }
+    
+    .main-content {
+        flex: 1;
+    }
+</style>
 
 @code {
     private bool IsNavbarCollapsed { get; set; } = false;
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender) {
-#if DEBUG
-        await Js.InvokeVoidAsync("window.initializeFlowbite");
-#endif
         if (isFirstRender) {
-            await Js.InvokeVoidAsync("window.initializeFlowbite");
+            try {
+                await Js.InvokeVoidAsync("window.initializeFlowbite");
+                Console.WriteLine("Flowbite initialized successfully");
+            }
+            catch (Exception ex) {
+                Console.WriteLine($"Error initializing Flowbite: {ex.Message}");
+            }
         }
     }
 }
