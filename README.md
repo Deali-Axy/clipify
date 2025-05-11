@@ -1,3 +1,5 @@
+![logo](./docs/_images/ClipifyLogoHorizontal.png)
+
 # Clipify
 
 **Clipify** 是一个基于 Blazor Hybrid 技术开发的简单流畅的视频编辑工具，专为提供快速、轻松的视频剪辑体验而设计。
@@ -19,7 +21,7 @@ Clipify 使用了强大的 ffmpeg 引擎作为后台支持，允许用户通过�
 ## 截图
 主界面
 
-![](./docs/_images/c3b15345fa8f91c80a526e74c985439.png)
+![](./docs/_images/home.jpg)
 
 | 音频提取                 | 导出视频                 |
 |----------------------|----------------------|
