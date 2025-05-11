@@ -42,4 +42,8 @@
       <Content Include="ClipifyLogo.ico" />
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\Clipify.Core\Clipify.Core.csproj" />
+    </ItemGroup>
+
 </Project>

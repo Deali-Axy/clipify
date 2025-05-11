@@ -1,34 +1,17 @@
-﻿using Clipify.Forms.EventBus.Request;
 using MediatR;
 
 namespace Clipify.Forms.Services;
 
-public class DialogService {
-    private readonly IMediator _mediator;
-
-    public event Func<string, Task>? OnFileSelected;
-    public event Func<string, Task>? OnDirSelected;
-
-    public DialogService(IMediator mediator) {
-        _mediator = mediator;
-    }
-
+/// <summary>
+/// 对话框服务（兼容性类）
+/// </summary>
+public class DialogService : DialogServiceImpl
+{
     /// <summary>
-    /// 发送请求，通知 WinForms 打开文件对话框
+    /// 初始化对话框服务
     /// </summary>
-    public async Task<string> OpenFileAsync() {
-        return await _mediator.Send(new OpenFileRequest());
+    /// <param name="mediator">中介者</param>
+    public DialogService(IMediator mediator) : base(mediator)
+    {
     }
-
-    public async Task<string> OpenDirAsync() {
-        return await _mediator.Send(new OpenDirRequest());
-    }
-
-    public void NotifyFileSelected(string path) {
-        OnFileSelected?.Invoke(path);
-    }
-
-    public void NotifyDirSelected(string path) {
-        OnDirSelected?.Invoke(path);
-    }
-}
+} 
