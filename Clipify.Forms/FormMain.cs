@@ -27,7 +27,7 @@ public partial class FormMain : Form {
         services.AddSingleton(this);
         services.AddScoped<IHostingEnvironment, HostingEnvironment>();
         services.AddScoped<DialogService>();
-        services.AddScoped<VideoService>();
+        services.AddTransient<VideoService>();
         
         blazorWebView1.HostPage = "wwwroot\\index.html";
         blazorWebView1.Services = services.BuildServiceProvider();

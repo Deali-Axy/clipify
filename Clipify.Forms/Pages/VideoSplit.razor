@@ -1,20 +1,155 @@
 ﻿@page "/video-split"
 
-@inject IMessageService _message
+@inject IMessageService MsgService
+@inject DialogService DialogService
+@inject VideoService VideoService
 
+<PageTitle>视频剪辑 - Clipify</PageTitle>
 
-<div class="py-8 px-4 border-2 border-gray-200 border-dashed rounded-lg dark:border-gray-700">
-    <h3 class="text-4xl">视频剪辑</h3>
-    <p class="text-gray-500">该功能还在集成中，请先使用 <a href="https://github.com/Deali-Axy/clipify/releases/tag/v0.1">QuickCutSharp</a></p>
-    <Button Type="primary" OnClick="OnClick">Hello World!</Button>
-</div>
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-8">视频剪辑</h1>
 
+    <VideoSelectorPanel @bind-VideoPath="@VideoPath" @bind-MetaData="MetaData" @ref="VideoSelector"/>
 
-@code {
+    @if (!string.IsNullOrWhiteSpace(VideoPath)) {
+        <div class="mt-2 p-6 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
+            <div class="mb-2 flex justify-between items-center">
+                <h5 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                    剪辑设置
+                </h5>
+                <i class="fa-solid fa-scissors text-4xl text-gray-500 dark:text-gray-400"></i>
+            </div>
 
-    private void OnClick() {
-        Console.WriteLine("onclick");
-        _message.Info("This is a normal message");
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <div class="flex items-center mb-4">
+                        <input id="enable-start-time" type="checkbox" @bind="EnableStartTime"
+                               class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                        <label for="enable-start-time" class="ms-2 text-sm font-medium text-gray-900 dark:text-white">启用开始时间</label>
+                    </div>
+                    
+                    @if (EnableStartTime) {
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label for="start-hour" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">小时</label>
+                                <input type="number" id="start-hour" min="0" max="23" @bind="StartHour"
+                                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label for="start-minute" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">分钟</label>
+                                <input type="number" id="start-minute" min="0" max="59" @bind="StartMinute"
+                                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label for="start-second" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">秒</label>
+                                <input type="number" id="start-second" min="0" max="59" @bind="StartSecond"
+                                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                            </div>
+                        </div>
+                    }
+                </div>
+                
+                <div>
+                    <div class="flex items-center mb-4">
+                        <input id="enable-end-time" type="checkbox" @bind="EnableEndTime"
+                               class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                        <label for="enable-end-time" class="ms-2 text-sm font-medium text-gray-900 dark:text-white">启用结束时间</label>
+                    </div>
+                    
+                    @if (EnableEndTime) {
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label for="end-hour" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">小时</label>
+                                <input type="number" id="end-hour" min="0" max="23" @bind="EndHour"
+                                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label for="end-minute" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">分钟</label>
+                                <input type="number" id="end-minute" min="0" max="59" @bind="EndMinute"
+                                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label for="end-second" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">秒</label>
+                                <input type="number" id="end-second" min="0" max="59" @bind="EndSecond"
+                                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <h6 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">输出设置</h6>
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="col-span-2">
+                        <div>
+                            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white" for="output-dir">保存目录</label>
+                            <form class="flex items-center">
+                                <div class="relative w-full">
+                                    <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+                                        <i class="fa-regular fa-folder text-gray-500 dark:text-gray-400"></i>
+                                    </div>
+                                    <input type="text" id="output-dir"
+                                           class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                                           placeholder="请选择保存目录"
+                                           @bind="OutputDir"
+                                           required/>
+                                </div>
+                                <button type="button" @onclick="OpenDirDialog"
+                                        class="p-2.5 ms-2 text-sm font-medium text-white bg-blue-700 rounded-lg border border-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                                    <i class="fa-regular fa-folder-open"></i>
+                                    <span class="sr-only">选择目录</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="col-span-1">
+                        <label for="output-format"
+                               class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">输出格式</label>
+                        <select id="output-format"
+                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                                @bind="OutputFormat">
+                            <option>mp4</option>
+                            <option>mkv</option>
+                            <option>avi</option>
+                            <option>mov</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <div class="flex items-center mb-4">
+                        <input id="use-same-quality" type="checkbox" @bind="UseSameQuality"
+                               class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                        <label for="use-same-quality" class="ms-2 text-sm font-medium text-gray-900 dark:text-white">与原视频使用相同质量（快速）</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <FFmpegArgumentsPanel FFmpegCommand="@FFmpegCommand" OnRegenerateArguments="() => GenerateFFmpegArguments()" />
+
+        <VideoExportDialog @ref="ExportDialogRef"/>
+
+        <div class="flex items-center gap-2 fixed bottom-5 right-5">
+            <Button
+                Size="large"
+                Type="@ButtonType.Default" Danger
+                Shape="@ButtonShape.Round"
+                OnClick="async () => await VideoSelector.ReSelectVideo()">
+                <i class="fa-solid fa-cash-register me-2"></i>
+                重新选择
+            </Button>
+            <Button
+                Size="large"
+                Type="@ButtonType.Primary"
+                Shape="@ButtonShape.Round"
+                Disabled="string.IsNullOrWhiteSpace(GenerateFFmpegArguments())"
+                OnClick="async () => await ExportVideo()">
+                <i class="fa-solid fa-play me-2"></i>
+                导出视频
+            </Button>
+        </div>
     }
-
-}
+</div>

@@ -13,19 +13,37 @@ public partial class VideoSelectorPanel {
     [Parameter] public MetaData? MetaData { get; set; }
 
     [Parameter] public string? Thumbnail { get; set; }
+
+    [Parameter] public EventCallback<string> VideoPathChanged { get; set; }
+
+    [Parameter] public EventCallback<MetaData> MetaDataChanged { get; set; }
     
-    [Parameter]
-    public EventCallback<string> VideoPathChanged { get; set; }
+    private string _previousVideoPath = string.Empty;
 
     protected override async Task OnParametersSetAsync() {
-        if (!string.IsNullOrWhiteSpace(VideoPath)) {
+        // 只有当VideoPath从空变为非空，或者VideoPath发生变化时才更新视频信息
+        if (!string.IsNullOrWhiteSpace(VideoPath) && VideoPath != _previousVideoPath) {
+            _previousVideoPath = VideoPath;
             await UpdateVideoInfo();
+        } else if (string.IsNullOrWhiteSpace(VideoPath) && !string.IsNullOrWhiteSpace(_previousVideoPath)) {
+            // VideoPath从非空变为空，更新_previousVideoPath
+            _previousVideoPath = VideoPath;
         }
     }
 
     protected override Task OnInitializedAsync() {
         DialogService.OnFileSelected += UpdateSelectedFile;
         return base.OnInitializedAsync();
+    }
+    
+    public async Task ReSelectVideo() {
+        MetaData = null;
+        await MetaDataChanged.InvokeAsync(MetaData);
+        Thumbnail = null;
+        VideoPath = string.Empty;
+        _previousVideoPath = string.Empty;
+        await VideoPathChanged.InvokeAsync(VideoPath);
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task UpdateSelectedFile(string path) {
@@ -36,7 +54,12 @@ public partial class VideoSelectorPanel {
     }
 
     private async Task UpdateVideoInfo() {
+        if (string.IsNullOrWhiteSpace(VideoPath)) {
+            return;
+        }
+        
         MetaData = await VideoService.FFmpeg.GetMetaDataAsync(new InputFile(VideoPath), CancellationToken.None);
+        await MetaDataChanged.InvokeAsync(MetaData);
         if (MetaData?.VideoData != null) {
             Thumbnail = await VideoService.GenerateThumbnailAsync(VideoPath);
         }
