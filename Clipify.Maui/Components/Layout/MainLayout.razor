@@ -1,17 +1,14 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
-
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
+<div class="min-h-screen bg-gray-100 dark:bg-gray-900">
+    <NavMenu />
+    
+    <main class="pt-16 pb-6">
+        @Body
     </main>
+
+    <footer class="text-center text-gray-500 p-4 dark:text-gray-400">
+        <div>Clipify - 简单好用的视频处理工具</div>
+        <div class="text-sm mt-1">基于FFmpeg引擎构建</div>
+    </footer>
 </div>

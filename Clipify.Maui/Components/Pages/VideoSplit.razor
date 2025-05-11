@@ -1,223 +1,152 @@
 @page "/videosplit"
+
 @using Clipify.Core.Interfaces
-@using Clipify.Core.Models
-@inject IDialogService DialogService
+@using Clipify.Maui.Components.Shared
 @inject IMessageService MsgService
+@inject IDialogService DialogService
 @inject IVideoService VideoService
 
-<h3>视频分割</h3>
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-8">视频剪辑</h1>
 
-<div class="container">
-    <div class="row mb-3">
-        <div class="col-md-12">
-            <div class="input-group">
-                <input type="text" class="form-control" placeholder="选择视频文件" @bind="VideoPath" readonly />
-                <button class="btn btn-primary" @onclick="OpenFileDialog">选择文件</button>
+    <VideoSelectorPanel @bind-VideoPath="@VideoPath" @bind-MetaData="MetaData" @ref="VideoSelector"/>
+
+    @if (!string.IsNullOrWhiteSpace(VideoPath)) {
+        <div class="mt-2 p-6 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
+            <div class="mb-2 flex justify-between items-center">
+                <h5 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                    剪辑设置
+                </h5>
+                <i class="fa-solid fa-scissors text-4xl text-gray-500 dark:text-gray-400"></i>
             </div>
-        </div>
-    </div>
 
-    <div class="row mb-3">
-        <div class="col-md-12">
-            <div class="input-group">
-                <input type="text" class="form-control" placeholder="选择输出目录" @bind="OutputDir" readonly />
-                <button class="btn btn-primary" @onclick="OpenDirDialog">选择目录</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" @bind="EnableStartTime" id="enableStartTime" />
-                <label class="form-check-label" for="enableStartTime">
-                    设置开始时间
-                </label>
-            </div>
-            @if (EnableStartTime)
-            {
-                <div class="input-group mt-2">
-                    <input type="number" class="form-control" placeholder="时" @bind="StartHour" min="0" />
-                    <input type="number" class="form-control" placeholder="分" @bind="StartMinute" min="0" max="59" />
-                    <input type="number" class="form-control" placeholder="秒" @bind="StartSecond" min="0" max="59" />
-                </div>
-            }
-        </div>
-        <div class="col-md-6">
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" @bind="EnableEndTime" id="enableEndTime" />
-                <label class="form-check-label" for="enableEndTime">
-                    设置结束时间
-                </label>
-            </div>
-            @if (EnableEndTime)
-            {
-                <div class="input-group mt-2">
-                    <input type="number" class="form-control" placeholder="时" @bind="EndHour" min="0" />
-                    <input type="number" class="form-control" placeholder="分" @bind="EndMinute" min="0" max="59" />
-                    <input type="number" class="form-control" placeholder="秒" @bind="EndSecond" min="0" max="59" />
-                </div>
-            }
-        </div>
-    </div>
-
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" @bind="UseSameQuality" id="useSameQuality" />
-                <label class="form-check-label" for="useSameQuality">
-                    保持原视频质量
-                </label>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <select class="form-select" @bind="OutputFormat">
-                <option value="mp4">MP4</option>
-                <option value="mkv">MKV</option>
-                <option value="avi">AVI</option>
-                <option value="mov">MOV</option>
-            </select>
-        </div>
-    </div>
-
-    <div class="row mb-3">
-        <div class="col-md-12">
-            <button class="btn btn-success" @onclick="ExportVideo" disabled="@(!CanExport)">开始处理</button>
-        </div>
-    </div>
-
-    @if (!string.IsNullOrEmpty(FFmpegCommand))
-    {
-        <div class="row">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header">
-                        FFmpeg命令
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <div class="flex items-center mb-4">
+                        <input id="enable-start-time" type="checkbox" @bind="EnableStartTime"
+                               class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                        <label for="enable-start-time" class="ms-2 text-sm font-medium text-gray-900 dark:text-white">启用开始时间</label>
                     </div>
-                    <div class="card-body">
-                        <pre>@FFmpegCommand</pre>
+                    
+                    @if (EnableStartTime) {
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label for="start-hour" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">小时</label>
+                                <input type="number" id="start-hour" min="0" max="23" @bind="StartHour"
+                                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label for="start-minute" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">分钟</label>
+                                <input type="number" id="start-minute" min="0" max="59" @bind="StartMinute"
+                                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label for="start-second" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">秒</label>
+                                <input type="number" id="start-second" min="0" max="59" @bind="StartSecond"
+                                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                            </div>
+                        </div>
+                    }
+                </div>
+                
+                <div>
+                    <div class="flex items-center mb-4">
+                        <input id="enable-end-time" type="checkbox" @bind="EnableEndTime"
+                               class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                        <label for="enable-end-time" class="ms-2 text-sm font-medium text-gray-900 dark:text-white">启用结束时间</label>
+                    </div>
+                    
+                    @if (EnableEndTime) {
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label for="end-hour" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">小时</label>
+                                <input type="number" id="end-hour" min="0" max="23" @bind="EndHour"
+                                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label for="end-minute" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">分钟</label>
+                                <input type="number" id="end-minute" min="0" max="59" @bind="EndMinute"
+                                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label for="end-second" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">秒</label>
+                                <input type="number" id="end-second" min="0" max="59" @bind="EndSecond"
+                                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <h6 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">输出设置</h6>
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="col-span-2">
+                        <div>
+                            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white" for="output-dir">保存目录</label>
+                            <form class="flex items-center">
+                                <div class="relative w-full">
+                                    <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+                                        <i class="fa-regular fa-folder text-gray-500 dark:text-gray-400"></i>
+                                    </div>
+                                    <input type="text" id="output-dir"
+                                           class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                                           placeholder="请选择保存目录"
+                                           @bind="OutputDir"
+                                           readonly
+                                           required/>
+                                </div>
+                                <button type="button" @onclick="OpenDirDialog"
+                                        class="p-2.5 ms-2 text-sm font-medium text-white bg-blue-700 rounded-lg border border-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                                    <i class="fa-regular fa-folder-open"></i>
+                                    <span class="sr-only">选择目录</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="col-span-1">
+                        <label for="output-format"
+                               class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">输出格式</label>
+                        <select id="output-format"
+                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                                @bind="OutputFormat">
+                            <option>mp4</option>
+                            <option>mkv</option>
+                            <option>avi</option>
+                            <option>mov</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <div class="flex items-center mb-4">
+                        <input id="use-same-quality" type="checkbox" @bind="UseSameQuality"
+                               class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                        <label for="use-same-quality" class="ms-2 text-sm font-medium text-gray-900 dark:text-white">与原视频使用相同质量（快速）</label>
                     </div>
                 </div>
             </div>
         </div>
+
+        <FFmpegArgumentsPanel FFmpegCommand="@FFmpegCommand" OnRegenerateArguments="() => GenerateFFmpegArguments()" />
+
+        <VideoExportDialog @ref="ExportDialogRef"/>
+
+        <div class="flex items-center gap-2 fixed bottom-5 right-5">
+            <button
+                @onclick="async () => await VideoSelector.ReSelectVideo()"
+                class="text-white bg-red-600 hover:bg-red-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2">
+                <i class="fa-solid fa-xmark me-2"></i>
+                重新选择
+            </button>
+            <button
+                @onclick="async () => await ExportVideo()"
+                disabled="@(string.IsNullOrWhiteSpace(GenerateFFmpegArguments()))"
+                class="@(string.IsNullOrWhiteSpace(GenerateFFmpegArguments()) ? "bg-gray-400" : "bg-blue-700 hover:bg-blue-800") text-white font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2">
+                <i class="fa-solid fa-play me-2"></i>
+                导出视频
+            </button>
+        </div>
     }
-</div>
-
-@code {
-    private CancellationTokenSource _cts = new CancellationTokenSource();
-    
-    public string? VideoPath { get; set; }
-    public string? OutputDir { get; set; }
-    public string? VideoMetadata { get; set; }
-
-    public bool EnableStartTime { get; set; }
-    public bool EnableEndTime { get; set; }
-    
-    public int StartHour { get; set; }
-    public int StartMinute { get; set; }
-    public int StartSecond { get; set; }
-    
-    public int EndHour { get; set; }
-    public int EndMinute { get; set; }
-    public int EndSecond { get; set; }
-    
-    public bool UseSameQuality { get; set; } = true;
-    public string OutputFormat { get; set; } = "mp4";
-
-    public bool CanExport => !string.IsNullOrEmpty(VideoPath) && !string.IsNullOrEmpty(OutputDir);
-
-    public string? OutputPath => string.IsNullOrWhiteSpace(OutputDir) || string.IsNullOrWhiteSpace(VideoPath) 
-        ? null 
-        : Path.Combine(OutputDir, $"{Path.GetFileNameWithoutExtension(VideoPath)}_cut.{OutputFormat}");
-
-    public string? FFmpegCommand => $"ffmpeg -y -hide_banner -i \"{VideoPath}\" {(UseSameQuality ? "-c copy" : "")} \"{OutputPath}\"";
-
-    protected override Task OnInitializedAsync()
-    {
-        DialogService.OnFileSelected += UpdateSelectedFile;
-        DialogService.OnDirSelected += UpdateSelectedDir;
-        return base.OnInitializedAsync();
-    }
-
-    private async Task OpenFileDialog()
-    {
-        await DialogService.OpenFileAsync();
-    }
-
-    private async Task OpenDirDialog()
-    {
-        await DialogService.OpenDirAsync();
-    }
-
-    private async Task UpdateSelectedFile(string path)
-    {
-        VideoPath = path;
-        try
-        {
-            // 简化实现，获取文件元数据
-            VideoMetadata = VideoService.GetFileMetadataMd5(path);
-            
-            // 生成缩略图
-            await VideoService.GenerateThumbnailAsync(path, _cts.Token);
-        }
-        catch (Exception ex)
-        {
-            await MsgService.Error($"无法读取视频元数据: {ex.Message}");
-        }
-        
-        StateHasChanged();
-    }
-
-    private Task UpdateSelectedDir(string path)
-    {
-        OutputDir = path;
-        StateHasChanged();
-        return Task.CompletedTask;
-    }
-
-    private async Task ExportVideo()
-    {
-        if (string.IsNullOrEmpty(VideoPath))
-        {
-            await MsgService.Error("请选择视频文件");
-            return;
-        }
-
-        if (string.IsNullOrEmpty(OutputDir))
-        {
-            await MsgService.Error("请选择输出目录");
-            return;
-        }
-
-        var options = new VideoProcessingOptions
-        {
-            VideoPath = VideoPath,
-            OutputDir = OutputDir,
-            EnableStartTime = EnableStartTime,
-            EnableEndTime = EnableEndTime,
-            StartHour = StartHour,
-            StartMinute = StartMinute,
-            StartSecond = StartSecond,
-            EndHour = EndHour,
-            EndMinute = EndMinute,
-            EndSecond = EndSecond,
-            UseSameQuality = UseSameQuality,
-            OutputFormat = OutputFormat
-        };
-
-        try
-        {
-            await MsgService.Info("开始处理视频...");
-            
-            // 在实际应用中，这里应该调用Core项目中的视频处理器
-            // 这里我们只是模拟一个处理过程
-            await Task.Delay(2000);
-            
-            await MsgService.Success("视频处理完成");
-        }
-        catch (Exception ex)
-        {
-            await MsgService.Error($"处理视频时出错: {ex.Message}");
-        }
-    }
-} 
+</div> 

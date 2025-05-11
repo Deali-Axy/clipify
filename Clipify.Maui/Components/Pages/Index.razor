@@ -1,0 +1,81 @@
+@page "/"
+
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-8">欢迎使用 Clipify</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+        <div class="p-6 bg-white rounded-lg border border-gray-200 shadow-md dark:bg-gray-800 dark:border-gray-700">
+            <div class="flex justify-between items-center mb-4">
+                <h5 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                    视频剪辑
+                </h5>
+                <i class="fa-solid fa-scissors text-4xl text-blue-500"></i>
+            </div>
+            <p class="mb-3 font-normal text-gray-700 dark:text-gray-400">
+                快速剪辑视频，可以设置开始时间和结束时间，轻松提取视频片段。
+            </p>
+            <a href="/videosplit" class="inline-flex items-center px-4 py-2 text-sm font-medium text-center text-white bg-blue-700 rounded-lg hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                开始使用
+                <i class="fa-solid fa-arrow-right ms-2"></i>
+            </a>
+        </div>
+
+        <div class="p-6 bg-white rounded-lg border border-gray-200 shadow-md dark:bg-gray-800 dark:border-gray-700">
+            <div class="flex justify-between items-center mb-4">
+                <h5 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                    提取音频
+                </h5>
+                <i class="fa-solid fa-music text-4xl text-green-500"></i>
+            </div>
+            <p class="mb-3 font-normal text-gray-700 dark:text-gray-400">
+                从视频中提取音频，支持MP3、AAC等多种音频格式，快速分离音轨。
+            </p>
+            <a href="/extract-audio" class="inline-flex items-center px-4 py-2 text-sm font-medium text-center text-white bg-green-700 rounded-lg hover:bg-green-800 focus:ring-4 focus:outline-none focus:ring-green-300 dark:bg-green-600 dark:hover:bg-green-700 dark:focus:ring-green-800">
+                开始使用
+                <i class="fa-solid fa-arrow-right ms-2"></i>
+            </a>
+        </div>
+
+        <div class="p-6 bg-white rounded-lg border border-gray-200 shadow-md dark:bg-gray-800 dark:border-gray-700">
+            <div class="flex justify-between items-center mb-4">
+                <h5 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                    音频转换
+                </h5>
+                <i class="fa-solid fa-file-audio text-4xl text-orange-500"></i>
+            </div>
+            <p class="mb-3 font-normal text-gray-700 dark:text-gray-400">
+                将视频中的音频转换为不同格式，支持MP3、AAC、OGG、FLAC等多种格式，并可调整音频质量。
+            </p>
+            <a href="/audio-conversion" class="inline-flex items-center px-4 py-2 text-sm font-medium text-center text-white bg-orange-600 rounded-lg hover:bg-orange-700 focus:ring-4 focus:outline-none focus:ring-orange-300 dark:bg-orange-500 dark:hover:bg-orange-600 dark:focus:ring-orange-700">
+                开始使用
+                <i class="fa-solid fa-arrow-right ms-2"></i>
+            </a>
+        </div>
+    </div>
+
+    <div class="p-6 bg-white rounded-lg border border-gray-200 shadow-md dark:bg-gray-800 dark:border-gray-700 mb-10">
+        <div class="flex justify-between items-center mb-4">
+            <h5 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                关于Clipify
+            </h5>
+            <i class="fa-solid fa-circle-info text-4xl text-purple-500"></i>
+        </div>
+        <div class="mb-3 text-gray-700 dark:text-gray-400">
+            <p class="mb-2">
+                Clipify是一款简单易用的视频处理工具，基于FFmpeg引擎开发，提供直观的界面帮助您快速完成视频处理任务。
+            </p>
+            <p class="mb-2">
+                主要功能包括：
+            </p>
+            <ul class="list-disc pl-5 mb-3">
+                <li>视频剪辑 - 设置开始和结束时间，快速分割视频</li>
+                <li>音频提取 - 从视频中分离出音频轨道</li>
+                <li>音频转换 - 将音频转换为不同格式并调整质量</li>
+                <li>批量处理 - 支持对多个视频文件进行批量操作（开发中）</li>
+            </ul>
+            <p>
+                Clipify使用.NET MAUI和Blazor Hybrid技术开发，支持Windows、macOS和移动平台。
+            </p>
+        </div>
+    </div>
+</div> 

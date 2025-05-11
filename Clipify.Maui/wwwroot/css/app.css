@@ -2,8 +2,12 @@
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
+h1:focus {
+    outline: none;
+}
+
 a, .btn-link {
-    color: #006bb7;
+    color: #0071c1;
 }
 
 .btn-primary {
@@ -20,20 +24,16 @@ a, .btn-link {
     padding-top: 1.1rem;
 }
 
-h1:focus {
-    outline: none;
-}
-
 .valid.modified:not([type=checkbox]) {
     outline: 1px solid #26b050;
 }
 
 .invalid {
-    outline: 1px solid #e50000;
+    outline: 1px solid red;
 }
 
 .validation-message {
-    color: #e50000;
+    color: red;
 }
 
 #blazor-error-ui {
