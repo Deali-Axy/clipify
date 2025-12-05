@@ -121,24 +121,89 @@ public class MkvToMp4Converter : BaseConverter {
         args.Add("-c:a");
         args.Add(_options.AudioCodec);
             
-        // 预设
-        var preset = _options.GetPresetName();
-        args.Add("-preset");
-        args.Add(preset);
+        // 预设（仅软件编码器支持）
+        if (!_options.IsHardwareEncoder()) {
+            var preset = _options.GetPresetName();
+            args.Add("-preset");
+            args.Add(preset);
+        }
             
         // 质量控制
         if (_options.IsHardwareEncoder()) {
-            // 硬件编码
-            if (_options.Bitrate > 0) {
-                args.Add("-b:v");
-                args.Add($"{_options.Bitrate}k");
-            }
-            else {
-                // 使用默认质量
-                args.Add("-rc");
-                args.Add("vbr");
-                args.Add("-cq");
-                args.Add("23");
+            // 硬件编码器的质量控制
+            switch (_options.VideoEncoder) {
+                case VideoEncoder.Hardware_NVENC:
+                    // NVIDIA 编码器
+                    if (_options.Bitrate > 0) {
+                        args.Add("-b:v");
+                        args.Add($"{_options.Bitrate}k");
+                    }
+                    else {
+                        args.Add("-rc");
+                        args.Add("vbr");
+                        args.Add("-cq");
+                        args.Add("23");
+                    }
+                    // NVENC 预设
+                    var nvencPreset = _options.Preset switch {
+                        EncodePreset.UltraFast => "p1",
+                        EncodePreset.Fast => "p3",
+                        EncodePreset.Medium => "p4",
+                        EncodePreset.Slow => "p6",
+                        EncodePreset.VerySlow => "p7",
+                        _ => "p4"
+                    };
+                    args.Add("-preset");
+                    args.Add(nvencPreset);
+                    break;
+                        
+                case VideoEncoder.Hardware_QSV:
+                    // Intel QSV 编码器
+                    if (_options.Bitrate > 0) {
+                        args.Add("-b:v");
+                        args.Add($"{_options.Bitrate}k");
+                    }
+                    else {
+                        args.Add("-global_quality");
+                        args.Add("23");
+                    }
+                    // QSV 预设
+                    var qsvPreset = _options.Preset switch {
+                        EncodePreset.UltraFast => "veryfast",
+                        EncodePreset.Fast => "fast",
+                        EncodePreset.Medium => "medium",
+                        EncodePreset.Slow => "slow",
+                        EncodePreset.VerySlow => "veryslow",
+                        _ => "medium"
+                    };
+                    args.Add("-preset");
+                    args.Add(qsvPreset);
+                    break;
+                        
+                case VideoEncoder.Hardware_AMF:
+                    // AMD AMF 编码器（不支持 preset 参数）
+                    if (_options.Bitrate > 0) {
+                        args.Add("-b:v");
+                        args.Add($"{_options.Bitrate}k");
+                    }
+                    else {
+                        // AMF 使用 CQP 模式
+                        args.Add("-rc");
+                        args.Add("cqp");
+                        args.Add("-qp_i");
+                        args.Add("23");
+                        args.Add("-qp_p");
+                        args.Add("23");
+                    }
+                    // AMF 质量设置
+                    var amfQuality = _options.Preset switch {
+                        EncodePreset.UltraFast or EncodePreset.Fast => "speed",
+                        EncodePreset.Slow or EncodePreset.VerySlow => "quality",
+                        _ => "balanced"
+                    };
+                    args.Add("-quality");
+                    args.Add(amfQuality);
+                    break;
             }
         }
         else {

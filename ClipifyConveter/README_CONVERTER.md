@@ -146,10 +146,18 @@ ClipifyConveter.exe "C:\Videos"
 **优点**:
 - 编码速度非常快（比软件编码快 5-10 倍）
 - CPU 占用低
+- 支持质量预设（p1-p7）
 
 **缺点**:
 - 质量略低于软件编码
 - 文件大小可能略大
+
+**预设映射**:
+- UltraFast → p1
+- Fast → p3
+- Medium → p4（默认）
+- Slow → p6
+- VerySlow → p7
 
 ### Intel 硬件编码 (h264_qsv)
 
@@ -160,9 +168,17 @@ ClipifyConveter.exe "C:\Videos"
 **优点**:
 - 编码速度快
 - 低功耗
+- 支持标准预设参数
 
 **缺点**:
 - 质量一般
+
+**预设映射**:
+- UltraFast → veryfast
+- Fast → fast
+- Medium → medium（默认）
+- Slow → slow
+- VerySlow → veryslow
 
 ### AMD 硬件编码 (h264_amf)
 
@@ -176,6 +192,15 @@ ClipifyConveter.exe "C:\Videos"
 
 **缺点**:
 - 质量略低于软件编码
+- **不支持传统 preset 参数**
+
+**质量模式**:
+- UltraFast/Fast → speed（速度优先）
+- Medium → balanced（平衡，默认）
+- Slow/VerySlow → quality（质量优先）
+
+**特别说明**:
+AMD AMF 编码器使用 `-quality` 参数而不是 `-preset`，质量控制使用 CQP（恒定量化参数）模式。
 
 ## 扩展开发
 
