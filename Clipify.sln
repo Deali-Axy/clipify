@@ -1,5 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
+# 
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Clipify.Forms", "Clipify.Forms\Clipify.Forms.csproj", "{95B287DB-D1EB-452D-B7DB-14302DFA79BA}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{C152E630-A803-4E7F-A1E4-3DFB2B37A26B}"
@@ -9,6 +10,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{C152E630-A
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClipifyConveter", "ClipifyConveter\ClipifyConveter.csproj", "{0AA0DCA6-8EE9-44F0-AFFC-37DD0BE2B218}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Clipify.Core", "Clipify.Core\Clipify.Core.csproj", "{381BBCBC-8A79-46D9-AC42-F09DA1AA9213}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Clipify.Maui", "Clipify.Maui\Clipify.Maui.csproj", "{FCC987B1-673D-432F-A577-E3A7A7EBA98C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -24,5 +29,13 @@ Global
 		{0AA0DCA6-8EE9-44F0-AFFC-37DD0BE2B218}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0AA0DCA6-8EE9-44F0-AFFC-37DD0BE2B218}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0AA0DCA6-8EE9-44F0-AFFC-37DD0BE2B218}.Release|Any CPU.Build.0 = Release|Any CPU
+		{381BBCBC-8A79-46D9-AC42-F09DA1AA9213}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{381BBCBC-8A79-46D9-AC42-F09DA1AA9213}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{381BBCBC-8A79-46D9-AC42-F09DA1AA9213}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{381BBCBC-8A79-46D9-AC42-F09DA1AA9213}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FCC987B1-673D-432F-A577-E3A7A7EBA98C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FCC987B1-673D-432F-A577-E3A7A7EBA98C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FCC987B1-673D-432F-A577-E3A7A7EBA98C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FCC987B1-673D-432F-A577-E3A7A7EBA98C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

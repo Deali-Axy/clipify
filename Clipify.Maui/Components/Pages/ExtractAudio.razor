@@ -1,0 +1,81 @@
+@page "/extract-audio"
+
+@using Clipify.Core.Interfaces
+@using Clipify.Maui.Components.Shared
+
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-8">提取音频</h1>
+
+    <VideoSelectorPanel @bind-VideoPath="@VideoPath" @bind-MetaData="MetaData" @ref="VideoSelector"/>
+
+    @if (!string.IsNullOrWhiteSpace(VideoPath)) {
+        <div class="mt-2 p-6 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
+            <div class="mb-2 flex justify-between items-center">
+                <h5 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                    输出设置
+                </h5>
+                <i class="fa-solid fa-gears text-4xl text-gray-500 dark:text-gray-400"></i>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+                <div class="col-span-2">
+                    <div>
+                        <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white" for="output-dir">保存目录</label>
+                        <form class="flex items-center">
+                            <div class="relative w-full">
+                                <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+                                    <i class="fa-regular fa-folder text-gray-500 dark:text-gray-400"></i>
+                                </div>
+                                <input type="text" id="output-dir"
+                                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5  dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                                       placeholder="请选择保存目录"
+                                       @bind="OutputDir"
+                                       readonly
+                                       required/>
+                            </div>
+                            <button type="button" @onclick="OpenDirDialog"
+                                    class="p-2.5 ms-2 text-sm font-medium text-white bg-blue-700 rounded-lg border border-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                                <i class="fa-regular fa-folder-open"></i>
+                                <span class="sr-only">选择目录</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="col-span-1">
+                    <label for="output-format"
+                           class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">输出格式</label>
+                    <select id="output-format"
+                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                            @bind="OutputFormat">
+                        <option>mp3</option>
+                        <option>aac</option>
+                        <option>flac</option>
+                        <option>wav</option>
+                    </select>
+                </div>
+            </div>
+
+        </div>
+
+        <FFmpegArgumentsPanel FFmpegCommand="@FFmpegCommand" OnRegenerateArguments="() => GenerateFFmpegArguments()" />
+
+        <VideoExportDialog @ref="ExportDialogRef"/>
+
+        <div class="flex items-center gap-2 fixed bottom-5 right-5">
+            <button
+                @onclick="async () => await VideoSelector.ReSelectVideo()"
+                class="text-white bg-red-600 hover:bg-red-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2">
+                <i class="fa-solid fa-xmark me-2"></i>
+                重新选择
+            </button>
+            <button
+                @onclick="async () => await ExportVideo()"
+                disabled="@(string.IsNullOrWhiteSpace(GenerateFFmpegArguments()))"
+                class="@(string.IsNullOrWhiteSpace(GenerateFFmpegArguments()) ? "bg-gray-400" : "bg-blue-700 hover:bg-blue-800") text-white font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2">
+                <i class="fa-solid fa-play me-2"></i>
+                提取音频
+            </button>
+        </div>
+    }
+</div> 

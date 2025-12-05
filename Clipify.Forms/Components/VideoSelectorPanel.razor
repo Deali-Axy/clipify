@@ -1,0 +1,126 @@
+@using System.IO
+@using FFmpeg.NET
+
+@inject IMessageService MsgService
+@inject DialogService DialogService
+@inject VideoService VideoService
+
+@if (string.IsNullOrWhiteSpace(VideoPath)) {
+    <div class="flex items-center justify-center w-full" @onclick="OpenFileDialog">
+        <label
+            class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500">
+            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                <i class="fa-solid fa-arrow-up-from-bracket text-4xl mb-4 text-gray-500 dark:text-gray-400"></i>
+                <p class="mb-2 text-sm text-gray-500 dark:text-gray-400">
+                    <span class="font-semibold">点击选择文件</span> 或拖放（暂不支持）
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">支持各种视频格式，如：mp4, avi, ts</p>
+            </div>
+        </label>
+    </div>
+}
+else {
+    <div class="p-6 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
+        <div class="mb-2 flex justify-between items-center">
+            <div class="flex flex-wrap items-center gap-2">
+                <h5 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                    @Path.GetFileName(VideoPath)
+                </h5>
+                @if (ShowActions) {
+                    <button role="link" class="inline-flex gap-1 font-medium items-center text-blue-600 hover:underline"
+                            @onclick="OpenCurrentFile">
+                        打开文件
+                        <i class="fa-solid fa-up-right-from-square text-xs"></i>
+                    </button>
+                    <button role="link" class="inline-flex gap-1 font-medium items-center text-blue-600 hover:underline"
+                            @onclick="ReSelectVideo">
+                        重新选择
+                        <i class="fa-regular fa-hand-pointer text-xs"></i>
+                    </button>
+                }
+            </div>
+            <i class="fa-regular fa-file-video text-4xl text-gray-500 dark:text-gray-400"></i>
+        </div>
+
+        @if (MetaData != null) {
+            <ul class="mb-2 flex flex-wrap items-center justify-start gap-4 text-gray-900 dark:text-white">
+                <li class="flex items-center gap-1">
+                    <i class="fa-regular fa-file"></i>
+                    @VideoPath
+                </li>
+                <li class="flex items-center gap-1">
+                    <i class="fa-regular fa-clock"></i>
+                    @MetaData.Duration.ToFriendlyString()
+                </li>
+                <li class="flex items-center gap-1">
+                    <i class="fa-solid fa-file-lines"></i>
+                    @MetaData.FileInfo.GetFriendlySize()
+                </li>
+            </ul>
+            <div class="mb-2 grid grid-cols-3 gap-4 items-start">
+                @* 视频信息 *@
+                <div>
+                    <h3 class="mb-2 flex items-center gap-1 font-semibold text-gray-900 dark:text-white">
+                        <i class="fa-solid fa-film"></i>
+                        视频信息
+                    </h3>
+
+                    @if (MetaData.VideoData != null) {
+                        <ul class="max-w-md space-y-1 text-gray-500 list-none list-inside dark:text-gray-400">
+                            <li>格式: @MetaData.VideoData.Format</li>
+                            <li>FPS: @MetaData.VideoData.Fps</li>
+                            <li>颜色: @MetaData.VideoData.ColorModel</li>
+                            <li>分辨率: @MetaData.VideoData.FrameSize</li>
+                            <li>码率: @MetaData.VideoData.BitRateKbs</li>
+                        </ul>
+                    }
+                    else {
+                        <div class="max-w-md p-4 bg-white border border-gray-200 flex items-center justify-center">
+                            <div class="flex flex-col items-center gap-4 text-gray-500 text-sm">
+                                <i class="fa-regular fa-face-laugh-squint text-3xl"></i>
+                                <div>无法获取视频信息</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                @* 音频信息 *@
+                <div>
+                    <h3 class="mb-2 flex items-center gap-1 font-semibold text-gray-900 dark:text-white">
+                        <i class="fa-solid fa-headphones"></i>
+                        音频信息
+                    </h3>
+
+                    @if (MetaData.AudioData != null) {
+                        <ul class="max-w-md space-y-1 text-gray-500 list-none list-inside dark:text-gray-400">
+                            <li>格式: @MetaData.AudioData.Format</li>
+                            <li>采样率: @MetaData.AudioData.SampleRate</li>
+                            <li>声道: @MetaData.AudioData.ChannelOutput</li>
+                            <li>码率: @MetaData.AudioData.BitRateKbs</li>
+                        </ul>
+                    }
+                    else {
+                        <div class="max-w-md p-4 bg-white border border-gray-200 flex items-center justify-center">
+                            <div class="flex flex-col items-center gap-4 text-gray-500 text-sm">
+                                <i class="fa-regular fa-face-laugh-squint text-3xl"></i>
+                                <div>无法获取音频信息</div>
+                            </div>
+                        </div>
+                    }
+
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(Thumbnail)) {
+                    <div>
+                        <h3 class="mb-2 flex items-center gap-1 font-semibold text-gray-900 dark:text-white">
+                            <i class="fa-regular fa-image"></i>
+                            缩略图
+                        </h3>
+                        <img src="@Thumbnail" class="rounded-lg shadow-xl dark:shadow-gray-800" alt="视频缩略图"
+                             width="350">
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}

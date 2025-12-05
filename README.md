@@ -1,6 +1,10 @@
+![logo](./docs/_images/ClipifyLogoHorizontal.png)
+
 # Clipify
 
 **Clipify** 是一个基于 Blazor Hybrid 技术开发的简单流畅的视频编辑工具，专为提供快速、轻松的视频剪辑体验而设计。
+
+设计思路和开发笔记: [用 Blazor Hybrid 打造简洁高效的视频处理工具](https://blog.deali.cn/Blog/Post/6a903b1c6fb2487f)
 
 ## 简介
 
@@ -17,7 +21,7 @@ Clipify 使用了强大的 ffmpeg 引擎作为后台支持，允许用户通过�
 ## 截图
 主界面
 
-![](./docs/_images/c3b15345fa8f91c80a526e74c985439.png)
+![](./docs/_images/home.jpg)
 
 | 音频提取                 | 导出视频                 |
 |----------------------|----------------------|
@@ -42,7 +46,7 @@ Clipify 使用了强大的 ffmpeg 引擎作为后台支持，允许用户通过�
 ## 依赖
 
 - [.NET 8+](https://dotnet.microsoft.com/download/dotnet/8.0)
-- [ffmpeg](https://ffmpeg.org/)（已集成在项目中，无需额外安装）
+- [ffmpeg](https://ffmpeg.org/)（Windows 环境可以使用 [scoop](https://scoop.sh/) 安装）
 
 ## 技术栈
 
@@ -79,14 +83,20 @@ gulp move
 
 ### tailwindcss
 
-本项目的样式使用 TailwindCSS ，使用以下命令生成。
+本项目的样式使用 [TailwindCSS](https://tailwindcss.com/) ，使用以下命令生成CSS
 
 ```bash
 cd Clipify.Forms
-npx tailwindcss -i .\wwwroot\css\tailwind.css -o .\wwwroot\css\tailwind.min.css
+npx tailwindcss -i ./wwwroot/css/tailwind.css -o ./wwwroot/css/tailwind.min.css -m
 ```
 
 开发时可以加上 `-w` / `--watch` 参数，动态生成。
+
+也可以使用本项目里定义好的 script
+
+```bash
+pnpm run tailwind:watch
+```
 
 ### 客户端编译
 

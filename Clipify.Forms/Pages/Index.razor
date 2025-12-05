@@ -4,48 +4,132 @@
 @inject INotificationService NotiService
 
 <div class="py-8 px-4 border-2 border-gray-200 border-dashed rounded-lg dark:border-gray-700">
-    <div class="flex items-center justify-center gap-2 mt-4 text-gray-600">
-        <i class="fa-regular fa-hand-scissors text-6xl"></i>
-        <span class="text-4xl">Clipify</span>
-    </div>
-    <div class="text-center text-gray-600 mt-4">
-        <p>Clipify 是一个基于 Blazor Hybrid 技术开发的简单流畅的视频编辑工具。</p>
-        <p>专为提供快速、轻松的视频剪辑体验而设计。</p>
-        <div class="mt-4 flex items-center justify-center gap-2">
+    <!-- 头部区域 -->
+    <div class="flex flex-col md:flex-row items-center justify-between gap-4 mb-8">
+        <div class="flex items-center gap-4">
+            <img src="images/ClipifyLogo.png" alt="Clipify Logo" class="w-40 h-auto">
+            <div class="text-left hidden md:block">
+                <div class="flex gap-2 items-center">
+                    <h1 class="text-2xl font-bold text-blue-600 dark:text-blue-400">Clipify</h1>
+                    <h2 class="text-xl font-semibold text-gray-800 dark:text-white mb-2">视频编辑，从未如此简单</h2>
+                </div>
+                <!-- 介绍区域 -->
+                <div class="">
+                    @* <p class="text-gray-600 dark:text-gray-300">简单流畅的视频编辑工具</p> *@
+                    <p class="text-gray-600 dark:text-gray-300 mb-2">Clipify 是一个基于 Blazor Hybrid 技术开发的简单流畅的视频编辑工具。</p>
+                    <p class="text-gray-600 dark:text-gray-300">专为提供快速、轻松的视频剪辑体验而设计。</p>
+                </div>
+            </div>
+        </div>
+        <div class="flex flex-col space-y-2">
             @foreach (var link in Links) {
-            <a href="@link.Href" class="inline-flex items-center justify-center py-2 px-4 text-base font-medium text-gray-500 rounded-lg bg-gray-50 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:text-white">
-                <i class="@link.IconClass text-xl me-3"></i>
-                <span class="w-full">@link.Name</span>
-                @* <i class="fa-solid fa-arrow-right ms-2"></i> *@
+            <a href="@link.Href" class="inline-flex items-center justify-start w-36 py-2 px-4 text-base font-medium text-gray-500 rounded-lg bg-gray-50 hover:text-blue-600 hover:bg-gray-100 transition-colors dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:text-blue-400">
+                <i class="@link.IconClass text-xl me-3 w-5 text-center"></i>
+                <span>@link.Name</span>
             </a>
             }
         </div>
     </div>
-    <div class="py-3 mt-4 flex items-center text-gray-500 before:flex-1 before:border-t before:border-gray-200 before:me-6 after:flex-1 after:border-t after:border-gray-200 after:ms-6 dark:text-white dark:before:border-neutral-600 dark:after:border-neutral-600">Features | 主要功能</div>
-    <div class="flex flex-wrap justify-center items-center gap-4 mt-4">
-        @foreach (var feature in Features) {
-        if (string.IsNullOrWhiteSpace(feature.Href)) {
-        <Tooltip Placement="Placement.TopLeft" Title="@feature.Desc" ArrowPointAtCenter="true">
-            <a href="#" @onclick="() => FeatureInDev(feature)"
-               class="flex flex-col gap-4 items-center max-w-sm px-10 pt-8 pb-4 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
-                <i class="@feature.IconClass text-5xl"></i>
-                <h5 class="text-xl tracking-tight text-gray-900 dark:text-white">@feature.Name</h5>
+
+    
+
+    <!-- 快速开始区域 -->
+    <div class="bg-blue-50 dark:bg-gray-800 rounded-lg p-6 mb-8">
+        <h3 class="text-lg font-medium text-blue-700 dark:text-blue-400 mb-4">🚀 快速开始</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <a href="@RouterMap.VideoSplit" class="flex items-center p-4 bg-white dark:bg-gray-700 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                <div class="bg-blue-100 dark:bg-blue-900 p-3 rounded-full mr-4">
+                    <i class="fa-solid fa-scissors text-blue-600 dark:text-blue-400"></i>
+                </div>
+                <div>
+                    <h4 class="font-medium text-gray-900 dark:text-white">视频分割</h4>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">将视频分割成多个片段</p>
+                </div>
             </a>
-        </Tooltip>
-        }
-        else {
-        <Tooltip Placement="Placement.TopLeft" Title="@feature.Desc" ArrowPointAtCenter="true">
-            <a href="@feature.Href" class="flex flex-col gap-4 items-center max-w-sm px-10 pt-8 pb-4 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
-                <i class="@feature.IconClass text-5xl"></i>
-                <h5 class="text-xl tracking-tight text-gray-900 dark:text-white">@feature.Name</h5>
+            <a href="@RouterMap.ExtractAudio" class="flex items-center p-4 bg-white dark:bg-gray-700 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                <div class="bg-blue-100 dark:bg-blue-900 p-3 rounded-full mr-4">
+                    <i class="fa-solid fa-music text-blue-600 dark:text-blue-400"></i>
+                </div>
+                <div>
+                    <h4 class="font-medium text-gray-900 dark:text-white">音频提取</h4>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">从视频中提取音频</p>
+                </div>
             </a>
-        </Tooltip>
-        }
-        }
+            <button @onclick="OpenFileDialog" class="flex items-center p-4 bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                <div class="bg-white dark:bg-gray-800 p-3 rounded-full mr-4">
+                    <i class="fa-solid fa-file-video text-blue-600 dark:text-blue-400"></i>
+                </div>
+                <div class="text-left">
+                    <h4 class="font-medium text-white">打开视频文件</h4>
+                    <p class="text-sm text-blue-100">开始你的创作之旅</p>
+                </div>
+            </button>
+        </div>
+    </div>
+
+    <!-- 功能分类区域 -->
+    <div class="mb-2">
+        <h3 class="text-lg font-medium text-gray-800 dark:text-white mb-4 flex items-center">
+            <i class="fa-solid fa-th-large mr-2 text-blue-600 dark:text-blue-400"></i>
+            功能中心
+        </h3>
+        
+        <!-- 分类选项卡 -->
+        <div class="mb-6">
+            <div class="flex flex-wrap gap-2 mb-4">
+                @foreach (var category in FeatureCategories)
+                {
+                    <button @onclick="() => SelectCategory(category.Id)" 
+                            class="@(selectedCategory == category.Id ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300") 
+                                   py-2 px-4 rounded-full text-sm font-medium transition-colors">
+                        <i class="@category.IconClass mr-1"></i>
+                        @category.Name
+                    </button>
+                }
+            </div>
+        </div>
+
+        <!-- 功能卡片网格 -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            @foreach (var feature in GetFilteredFeatures())
+            {
+                if (string.IsNullOrWhiteSpace(feature.Href))
+                {
+                    <Tooltip Placement="Placement.Top" Title="@feature.Desc" ArrowPointAtCenter="true">
+                        <a href="#" @onclick="() => FeatureInDev(feature)"
+                           class="flex flex-col items-center p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700 relative">
+                            <div class="absolute top-2 right-2">
+                                <span class="inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
+                                    开发中
+                                </span>
+                            </div>
+                            <i class="@feature.IconClass text-4xl mb-3 text-gray-600 dark:text-gray-300"></i>
+                            <h5 class="text-base font-medium text-gray-900 dark:text-white text-center">@feature.Name</h5>
+                        </a>
+                    </Tooltip>
+                }
+                else
+                {
+                    <Tooltip Placement="Placement.Top" Title="@feature.Desc" ArrowPointAtCenter="true">
+                        <a href="@feature.Href"
+                           class="flex flex-col items-center p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-blue-300 transition-all dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700 dark:hover:border-blue-600">
+                            <i class="@feature.IconClass text-4xl mb-3 text-blue-600 dark:text-blue-400"></i>
+                            <h5 class="text-base font-medium text-gray-900 dark:text-white text-center">@feature.Name</h5>
+                        </a>
+                    </Tooltip>
+                }
+            }
+        </div>
+    </div>
+
+    <!-- 底部区域 -->
+    <div class="mt-8 pt-4 border-t border-gray-200 dark:border-gray-700 text-center text-gray-500 dark:text-gray-400 text-sm">
+        <p>Clipify - 让视频编辑更简单 © @DateTime.Now.Year</p>
     </div>
 </div>
 
 @code{
+    private string selectedCategory = "all";
 
     public class ActionLink {
         public string IconClass { get; set; }
@@ -58,7 +142,23 @@
         public string Name { get; set; }
         public string? Href { get; set; }
         public string? Desc { get; set; }
+        public string Category { get; set; } = "other";
     }
+
+    public class CategoryItem {
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public string IconClass { get; set; }
+    }
+
+    public List<CategoryItem> FeatureCategories { get; set; } = new List<CategoryItem> {
+        new CategoryItem { Id = "all", Name = "全部功能", IconClass = "fa-solid fa-border-all" },
+        new CategoryItem { Id = "basic", Name = "基础编辑", IconClass = "fa-solid fa-cut" },
+        new CategoryItem { Id = "audio", Name = "音频处理", IconClass = "fa-solid fa-volume-up" },
+        new CategoryItem { Id = "enhance", Name = "视频增强", IconClass = "fa-solid fa-magic" },
+        new CategoryItem { Id = "subtitle", Name = "字幕工具", IconClass = "fa-solid fa-closed-captioning" },
+        new CategoryItem { Id = "other", Name = "其他工具", IconClass = "fa-solid fa-tools" }
+    };
 
     public List<ActionLink> Links { get; set; } = new List<ActionLink> {
         new ActionLink { IconClass = "fa-brands fa-github", Name = "项目主页", Href = "https://github.com/deali-Axy/clipify" },
@@ -67,27 +167,40 @@
     };
 
     public List<FeatureCard> Features { get; set; } = new List<FeatureCard> {
-        new FeatureCard { IconClass = "fa-solid fa-scissors", Name = "视频分割", Href = RouterMap.VideoSplit, Desc = "将视频分割成多个片段" },
-        new FeatureCard { IconClass = "fa-solid fa-music", Name = "音频提取", Href = RouterMap.ExtractAudio, Desc = "从视频中提取音频" },
-        new FeatureCard { IconClass = "fa-solid fa-hand-scissors", Name = "片段裁剪", Desc = "裁剪视频的特定片段" },
-        new FeatureCard { IconClass = "fa-solid fa-eraser", Name = "片段移除", Desc = "移除不需要的视频片段" },
-        new FeatureCard { IconClass = "fa-regular fa-object-group", Name = "视频合并", Desc = "合并多个视频片段" },
-        new FeatureCard { IconClass = "fa-regular fa-closed-captioning", Name = "字幕识别", Desc = "识别并提取视频中的字幕" },
-        new FeatureCard { IconClass = "fa-solid fa-language", Name = "字幕翻译", Desc = "将字幕翻译成其他语言" },
-        new FeatureCard { IconClass = "fa-solid fa-sheet-plastic", Name = "水印添加", Desc = "为视频添加自定义水印" },
-        new FeatureCard { IconClass = "fa-solid fa-download", Name = "视频下载", Desc = "下载视频文件" },
-        new FeatureCard { IconClass = "fa-solid fa-radio", Name = "博客采集", Desc = "采集播客音频" },
-        new FeatureCard { IconClass = "fa-solid fa-sync-alt", Name = "视频旋转", Desc = "旋转视频角度" },
-        new FeatureCard { IconClass = "fa-solid fa-tachometer-alt", Name = "视频调速", Desc = "调整视频播放速度" },
-        new FeatureCard { IconClass = "fa-solid fa-crop-alt", Name = "视频裁剪", Desc = "裁剪视频画面尺寸" },
-        new FeatureCard { IconClass = "fa-solid fa-adjust", Name = "滤镜应用", Desc = "为视频添加视觉滤镜" },
-        new FeatureCard { IconClass = "fa-solid fa-compress-alt", Name = "视频压缩", Desc = "压缩视频文件大小" },
-        new FeatureCard { IconClass = "fa-solid fa-icons", Name = "背景音乐添加", Desc = "为视频添加背景音乐" },
-        new FeatureCard { IconClass = "fa-solid fa-expand-arrows-alt", Name = "分辨率调整", Desc = "调整视频分辨率" },
-        new FeatureCard { IconClass = "fa-solid fa-palette", Name = "颜色校正", Desc = "调整视频颜色和亮度" },
-        new FeatureCard { IconClass = "fa-solid fa-image", Name = "帧提取", Desc = "从视频中提取特定帧" },
-        new FeatureCard { IconClass = "fa-solid fa-play", Name = "视频预览", Desc = "预览视频内容" }
+        new FeatureCard { IconClass = "fa-solid fa-scissors", Name = "视频分割", Href = RouterMap.VideoSplit, Desc = "将视频分割成多个片段", Category = "basic" },
+        new FeatureCard { IconClass = "fa-solid fa-music", Name = "音频提取", Href = RouterMap.ExtractAudio, Desc = "从视频中提取音频", Category = "audio" },
+        new FeatureCard { IconClass = "fa-solid fa-hand-scissors", Name = "片段裁剪", Desc = "裁剪视频的特定片段", Category = "basic" },
+        new FeatureCard { IconClass = "fa-solid fa-eraser", Name = "片段移除", Desc = "移除不需要的视频片段", Category = "basic" },
+        new FeatureCard { IconClass = "fa-regular fa-object-group", Name = "视频合并", Desc = "合并多个视频片段", Category = "basic" },
+        new FeatureCard { IconClass = "fa-regular fa-closed-captioning", Name = "字幕识别", Desc = "识别并提取视频中的字幕", Category = "subtitle" },
+        new FeatureCard { IconClass = "fa-solid fa-language", Name = "字幕翻译", Desc = "将字幕翻译成其他语言", Category = "subtitle" },
+        new FeatureCard { IconClass = "fa-solid fa-sheet-plastic", Name = "水印添加", Desc = "为视频添加自定义水印", Category = "enhance" },
+        new FeatureCard { IconClass = "fa-solid fa-download", Name = "视频下载", Desc = "下载视频文件", Category = "other" },
+        new FeatureCard { IconClass = "fa-solid fa-radio", Name = "博客采集", Desc = "采集播客音频", Category = "audio" },
+        new FeatureCard { IconClass = "fa-solid fa-sync-alt", Name = "视频旋转", Desc = "旋转视频角度", Category = "basic" },
+        new FeatureCard { IconClass = "fa-solid fa-tachometer-alt", Name = "视频调速", Desc = "调整视频播放速度", Category = "enhance" },
+        new FeatureCard { IconClass = "fa-solid fa-crop-alt", Name = "视频裁剪", Desc = "裁剪视频画面尺寸", Category = "basic" },
+        new FeatureCard { IconClass = "fa-solid fa-adjust", Name = "滤镜应用", Desc = "为视频添加视觉滤镜", Category = "enhance" },
+        new FeatureCard { IconClass = "fa-solid fa-compress-alt", Name = "视频压缩", Desc = "压缩视频文件大小", Category = "other" },
+        new FeatureCard { IconClass = "fa-solid fa-icons", Name = "背景音乐添加", Desc = "为视频添加背景音乐", Category = "audio" },
+        new FeatureCard { IconClass = "fa-solid fa-expand-arrows-alt", Name = "分辨率调整", Desc = "调整视频分辨率", Category = "enhance" },
+        new FeatureCard { IconClass = "fa-solid fa-palette", Name = "颜色校正", Desc = "调整视频颜色和亮度", Category = "enhance" },
+        new FeatureCard { IconClass = "fa-solid fa-image", Name = "帧提取", Desc = "从视频中提取特定帧", Category = "other" },
+        new FeatureCard { IconClass = "fa-solid fa-play", Name = "视频预览", Desc = "预览视频内容", Category = "other" }
     };
+
+    private List<FeatureCard> GetFilteredFeatures()
+    {
+        if (selectedCategory == "all")
+            return Features;
+        
+        return Features.Where(f => f.Category == selectedCategory).ToList();
+    }
+
+    private void SelectCategory(string categoryId)
+    {
+        selectedCategory = categoryId;
+    }
 
     private async Task FeatureInDev(FeatureCard feature) {
         RenderFragment customIcon = @<i class="@feature.IconClass text-2xl text-blue-500"></i>;
@@ -98,4 +211,9 @@
         });
     }
 
+    private async Task OpenFileDialog()
+    {
+        await MsgService.Success("文件选择器：即将打开文件选择器，请选择要编辑的视频文件。");
+        // 这里实际项目中应该调用文件选择器
+    }
 }

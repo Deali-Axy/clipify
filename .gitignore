@@ -1,6 +1,9 @@
 Clipify.Forms/wwwroot/lib
 Clipify.Forms/wwwroot/css/*.min.css
 Clipify.Forms/wwwroot/temp
+Clipify.Maui/wwwroot/lib
+Clipify.Maui/wwwroot/css/*.min.css
+Clipify.Maui/wwwroot/temp
 
 bin/
 obj/

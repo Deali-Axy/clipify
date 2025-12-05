@@ -21,22 +21,23 @@ partial class FormMain {
     #region Windows Form Designer generated code
 
     /// <summary>
-    ///  Required method for Designer support - do not modify
-    ///  the contents of this method with the code editor.
+    /// Required method for Designer support - do not modify
+    /// the contents of this method with the code editor.
     /// </summary>
-    private void InitializeComponent()
-    {
+    private void InitializeComponent() {
+        System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(FormMain));
         blazorWebView1 = new Microsoft.AspNetCore.Components.WebView.WindowsForms.BlazorWebView();
-        openFileDialog = new OpenFileDialog();
-        folderBrowserDialog = new FolderBrowserDialog();
+        openFileDialog = new System.Windows.Forms.OpenFileDialog();
+        folderBrowserDialog = new System.Windows.Forms.FolderBrowserDialog();
         SuspendLayout();
         // 
         // blazorWebView1
         // 
-        blazorWebView1.Dock = DockStyle.Fill;
-        blazorWebView1.Location = new Point(0, 0);
+        blazorWebView1.Dock = System.Windows.Forms.DockStyle.Fill;
+        blazorWebView1.Location = new System.Drawing.Point(0, 0);
+        blazorWebView1.Margin = new System.Windows.Forms.Padding(6, 5, 6, 5);
         blazorWebView1.Name = "blazorWebView1";
-        blazorWebView1.Size = new Size(1264, 681);
+        blazorWebView1.Size = new System.Drawing.Size(2690, 1631);
         blazorWebView1.StartPath = "/";
         blazorWebView1.TabIndex = 0;
         blazorWebView1.Text = "blazorWebView1";
@@ -50,12 +51,13 @@ partial class FormMain {
         // 
         // FormMain
         // 
-        AutoScaleDimensions = new SizeF(7F, 17F);
-        AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(1264, 681);
+        AutoScaleDimensions = new System.Drawing.SizeF(14F, 31F);
+        AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+        ClientSize = new System.Drawing.Size(2690, 1631);
         Controls.Add(blazorWebView1);
-        Name = "FormMain";
-        StartPosition = FormStartPosition.CenterScreen;
+        Icon = ((System.Drawing.Icon)resources.GetObject("$this.Icon"));
+        Margin = new System.Windows.Forms.Padding(6, 5, 6, 5);
+        StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
         Text = "Clipify - 简单流畅的视频编辑体验";
         ResumeLayout(false);
     }

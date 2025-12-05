@@ -1,4 +1,8 @@
-﻿using Clipify.Forms.Services;
+﻿using Clipify.Core.Extensions;
+using Clipify.Core.Interfaces;
+using Clipify.Forms.Services;
+using CoreHostingEnvironment = Clipify.Core.Interfaces.IHostingEnvironment;
+using CoreMessageService = Clipify.Core.Interfaces.IMessageService;
 
 namespace Clipify.Forms;
 
@@ -25,14 +29,24 @@ public partial class FormMain : Form {
 #endif
 
         services.AddSingleton(this);
-        services.AddScoped<IHostingEnvironment, HostingEnvironment>();
+        
+        // 注册Core项目中的服务
+        services.AddClipifyCore();
+        
+        // 注册服务实现
+        services.AddScoped<IDialogService, DialogServiceImpl>();
+        services.AddTransient<IVideoService, VideoServiceImpl>();
+        services.AddScoped<CoreMessageService, MessageServiceImpl>();
+        
+        // 注册原有服务（兼容性）
         services.AddScoped<DialogService>();
-        services.AddScoped<VideoService>();
+        services.AddTransient<VideoService>();
+        // 添加Forms项目自己的IHostingEnvironment接口
+        services.AddSingleton<Services.IHostingEnvironment, HostingEnvironmentImpl>();
         
         blazorWebView1.HostPage = "wwwroot\\index.html";
         blazorWebView1.Services = services.BuildServiceProvider();
         blazorWebView1.RootComponents.Add<App>("#app");
-        // blazorWebView1.RootComponents.Add<Counter>("#app");
     }
 
     // 处理拖动进入事件，检测是否为文件
