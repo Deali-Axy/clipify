@@ -19,12 +19,11 @@ public abstract class BaseConverter : IConverter {
     /// <param name="targetFile">目标文件路径</param>
     /// <returns>FFmpeg 命令参数</returns>
     protected abstract string GenerateFfmpegArguments(string sourceFile, string targetFile);
-    
+
     /// <summary>
     /// 配置转换器选项
     /// </summary>
-    public virtual void Configure()
-    {
+    public virtual void Configure() {
         // 子类可以重写此方法实现交互式配置
     }
 

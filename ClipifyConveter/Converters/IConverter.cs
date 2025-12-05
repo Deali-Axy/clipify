@@ -20,7 +20,7 @@ public interface IConverter {
     /// 获取目标文件扩展名
     /// </summary>
     string TargetExtension { get; }
-    
+
     /// <summary>
     /// 获取转换器选项
     /// </summary>
@@ -32,7 +32,7 @@ public interface IConverter {
     /// <param name="targetDirectory">目标目录</param>
     /// <returns>转换结果</returns>
     Task<bool> ConvertAsync(string targetDirectory);
-    
+
     /// <summary>
     /// 配置转换器选项
     /// </summary>

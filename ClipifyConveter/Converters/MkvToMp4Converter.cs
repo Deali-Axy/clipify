@@ -7,7 +7,7 @@ namespace ClipifyConveter.Converters;
 /// </summary>
 public class MkvToMp4Converter : BaseConverter {
     private readonly MkvToMp4Options _options = new();
-    
+
     public override string Name => $"MKV转MP4转换器(H.264-{GetEncoderDisplayName()})";
     public override string SourceExtension => ".mkv";
     public override string TargetExtension => ".mp4";
@@ -22,11 +22,11 @@ public class MkvToMp4Converter : BaseConverter {
             _ => "软件编码"
         };
     }
-    
+
     public override void Configure() {
         Console.WriteLine($"\n配置 {Name}");
         Console.WriteLine("=".PadLeft(50, '='));
-        
+
         // 选择编码器
         Console.WriteLine("\n请选择视频编码器：");
         Console.WriteLine("1. 软件编码 (libx264) - 兼容性最好，质量最佳");
@@ -34,7 +34,7 @@ public class MkvToMp4Converter : BaseConverter {
         Console.WriteLine("3. Intel 硬件编码 (h264_qsv) - 需要 Intel 显卡/CPU，速度快");
         Console.WriteLine("4. AMD 硬件编码 (h264_amf) - 需要 AMD 显卡，速度快");
         Console.Write($"选择 (1-4) [默认: 1]: ");
-        
+
         var encoderChoice = Console.ReadLine();
         _options.VideoEncoder = encoderChoice switch {
             "2" => VideoEncoder.Hardware_NVENC,
@@ -42,7 +42,7 @@ public class MkvToMp4Converter : BaseConverter {
             "4" => VideoEncoder.Hardware_AMF,
             _ => VideoEncoder.Software_X264
         };
-        
+
         // 选择预设
         Console.WriteLine("\n请选择编码预设（速度/质量平衡）：");
         Console.WriteLine("1. ultrafast - 极快（质量较低）");
@@ -51,7 +51,7 @@ public class MkvToMp4Converter : BaseConverter {
         Console.WriteLine("4. slow - 慢（质量较好）");
         Console.WriteLine("5. veryslow - 很慢（质量最好）");
         Console.Write($"选择 (1-5) [默认: 3]: ");
-        
+
         var presetChoice = Console.ReadLine();
         _options.Preset = presetChoice switch {
             "1" => EncodePreset.UltraFast,
@@ -60,7 +60,7 @@ public class MkvToMp4Converter : BaseConverter {
             "5" => EncodePreset.VerySlow,
             _ => EncodePreset.Medium
         };
-        
+
         // 质量设置
         if (_options.VideoEncoder == VideoEncoder.Software_X264) {
             Console.Write($"\n请输入视频质量 (CRF: 18-28, 越小质量越好) [默认: 23]: ");
@@ -75,7 +75,7 @@ public class MkvToMp4Converter : BaseConverter {
             Console.WriteLine("1. 自动 (默认，由编码器决定)");
             Console.WriteLine("2. 指定码率 (kbps)");
             Console.Write("选择 (1-2) [默认: 1]: ");
-            
+
             var bitrateChoice = Console.ReadLine();
             if (bitrateChoice == "2") {
                 Console.Write("请输入目标码率 (kbps, 例如 5000): ");
@@ -85,13 +85,13 @@ public class MkvToMp4Converter : BaseConverter {
                 }
             }
         }
-        
+
         // 覆盖设置
         Console.Write($"\n自动覆盖同名文件? (Y/n) [默认: Y]: ");
         var overwriteInput = Console.ReadLine();
-        _options.AutoOverwrite = string.IsNullOrWhiteSpace(overwriteInput) || 
+        _options.AutoOverwrite = string.IsNullOrWhiteSpace(overwriteInput) ||
                                  !overwriteInput.Trim().Equals("n", StringComparison.OrdinalIgnoreCase);
-        
+
         Console.WriteLine("\n配置完成！");
         Console.WriteLine($"编码器: {_options.GetVideoEncoderName()}");
         Console.WriteLine($"预设: {_options.GetPresetName()}");
@@ -101,6 +101,7 @@ public class MkvToMp4Converter : BaseConverter {
         else if (_options.Bitrate > 0) {
             Console.WriteLine($"码率: {_options.Bitrate} kbps");
         }
+
         Console.WriteLine($"自动覆盖: {(_options.AutoOverwrite ? "是" : "否")}");
         Console.WriteLine();
     }
@@ -109,18 +110,18 @@ public class MkvToMp4Converter : BaseConverter {
         var args = new List<string> {
             $"-i \"{sourceFile}\""
         };
-        
+
         // 视频编码器
         var videoEncoder = _options.GetVideoEncoderName();
         args.Add($"-c:v {videoEncoder}");
-        
+
         // 音频编码器
         args.Add($"-c:a {_options.AudioCodec}");
-        
+
         // 预设
         var preset = _options.GetPresetName();
         args.Add($"-preset {preset}");
-        
+
         // 质量控制
         if (_options.IsHardwareEncoder()) {
             // 硬件编码
@@ -137,13 +138,13 @@ public class MkvToMp4Converter : BaseConverter {
             // 软件编码使用 CRF
             args.Add($"-crf {_options.Quality}");
         }
-        
+
         // 覆盖标志
         args.Add(_options.AutoOverwrite ? "-y" : "-n");
-        
+
         // 目标文件
         args.Add($"\"{targetFile}\"");
-        
+
         return string.Join(" ", args);
     }
 }
