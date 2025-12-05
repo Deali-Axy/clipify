@@ -109,7 +109,7 @@ public class MkvToMp4Converter : BaseConverter {
     protected override List<string> GenerateFfmpegArguments(string sourceFile, string targetFile) {
         var args = new List<string> {
             "-i",
-            sourceFile
+            NormalizePath(sourceFile)
         };
             
         // 视频编码器
@@ -151,7 +151,7 @@ public class MkvToMp4Converter : BaseConverter {
         args.Add(_options.AutoOverwrite ? "-y" : "-n");
             
         // 目标文件
-        args.Add(targetFile);
+        args.Add(NormalizePath(targetFile));
             
         return args;
     }

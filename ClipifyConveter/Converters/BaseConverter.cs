@@ -19,6 +19,15 @@ public abstract class BaseConverter : IConverter {
     /// <param name="targetFile">目标文件路径</param>
     /// <returns>FFmpeg 命令参数列表</returns>
     protected abstract List<string> GenerateFfmpegArguments(string sourceFile, string targetFile);
+    
+    /// <summary>
+    /// 规范化文件路径以兼容 FFmpeg
+    /// Windows 上 FFmpeg 更好地支持正斜杠
+    /// </summary>
+    protected virtual string NormalizePath(string path) {
+        // 将反斜杠转换为正斜杠
+        return path.Replace("\\", "/");
+    }
 
     /// <summary>
     /// 配置转换器选项
@@ -46,6 +55,10 @@ public abstract class BaseConverter : IConverter {
             Console.WriteLine($"处理文件：{sourceFile}");
 
             var targetFile = Path.ChangeExtension(sourceFile, TargetExtension);
+            Console.WriteLine($"目标文件：{targetFile}");
+            Console.WriteLine($"文件路径是否存在: 源={File.Exists(sourceFile)}, 目标目录={Directory.Exists(Path.GetDirectoryName(targetFile))}");
+            Console.WriteLine();
+            
             var argumentsList = GenerateFfmpegArguments(sourceFile, targetFile);
 
             if (await ExecuteFfmpegAsync(argumentsList)) {
@@ -76,6 +89,11 @@ public abstract class BaseConverter : IConverter {
         foreach (var arg in arguments) {
             psi.ArgumentList.Add(arg);
         }
+        
+        // 调试输出：显示完整命令
+        var cmdDisplay = string.Join(" ", arguments.Select(a => a.Contains(' ') || a.Contains('\\') ? $"\"{a}\"" : a));
+        Console.WriteLine($"执行命令: ffmpeg {cmdDisplay}");
+        Console.WriteLine();
 
         using var process = new Process { StartInfo = psi };
 

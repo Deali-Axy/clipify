@@ -16,7 +16,7 @@ public class TsToMp4Converter : BaseConverter {
     protected override List<string> GenerateFfmpegArguments(string sourceFile, string targetFile) {
         var args = new List<string> {
             "-i",
-            sourceFile
+            NormalizePath(sourceFile)
         };
             
         if (_options.CopyCodec) {
@@ -36,7 +36,7 @@ public class TsToMp4Converter : BaseConverter {
         args.Add(_options.AutoOverwrite ? "-y" : "-n");
             
         // 目标文件
-        args.Add(targetFile);
+        args.Add(NormalizePath(targetFile));
             
         return args;
     }
