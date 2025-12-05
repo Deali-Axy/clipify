@@ -13,16 +13,31 @@ public class TsToMp4Converter : BaseConverter {
     public override string TargetExtension => ".mp4";
     public override ConverterOptions Options => _options;
 
-    protected override string GenerateFfmpegArguments(string sourceFile, string targetFile) {
-        var overwriteFlag = _options.AutoOverwrite ? "-y" : "-n";
-
+    protected override List<string> GenerateFfmpegArguments(string sourceFile, string targetFile) {
+        var args = new List<string> {
+            "-i",
+            sourceFile
+        };
+            
         if (_options.CopyCodec) {
             // 只做封装转换，不做重新编码
-            return $"-i \"{sourceFile}\" -c copy {overwriteFlag} \"{targetFile}\"";
+            args.Add("-c");
+            args.Add("copy");
         }
         else {
             // 重新编码
-            return $"-i \"{sourceFile}\" -c:v libx264 -c:a aac {overwriteFlag} \"{targetFile}\"";
+            args.Add("-c:v");
+            args.Add("libx264");
+            args.Add("-c:a");
+            args.Add("aac");
         }
+            
+        // 覆盖标志
+        args.Add(_options.AutoOverwrite ? "-y" : "-n");
+            
+        // 目标文件
+        args.Add(targetFile);
+            
+        return args;
     }
 }

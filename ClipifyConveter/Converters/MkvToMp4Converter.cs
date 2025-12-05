@@ -106,45 +106,53 @@ public class MkvToMp4Converter : BaseConverter {
         Console.WriteLine();
     }
 
-    protected override string GenerateFfmpegArguments(string sourceFile, string targetFile) {
+    protected override List<string> GenerateFfmpegArguments(string sourceFile, string targetFile) {
         var args = new List<string> {
-            $"-i \"{sourceFile}\""
+            "-i",
+            sourceFile
         };
-
+            
         // 视频编码器
         var videoEncoder = _options.GetVideoEncoderName();
-        args.Add($"-c:v {videoEncoder}");
-
+        args.Add("-c:v");
+        args.Add(videoEncoder);
+            
         // 音频编码器
-        args.Add($"-c:a {_options.AudioCodec}");
-
+        args.Add("-c:a");
+        args.Add(_options.AudioCodec);
+            
         // 预设
         var preset = _options.GetPresetName();
-        args.Add($"-preset {preset}");
-
+        args.Add("-preset");
+        args.Add(preset);
+            
         // 质量控制
         if (_options.IsHardwareEncoder()) {
             // 硬件编码
             if (_options.Bitrate > 0) {
-                args.Add($"-b:v {_options.Bitrate}k");
+                args.Add("-b:v");
+                args.Add($"{_options.Bitrate}k");
             }
             else {
                 // 使用默认质量
-                args.Add("-rc vbr");
-                args.Add("-cq 23");
+                args.Add("-rc");
+                args.Add("vbr");
+                args.Add("-cq");
+                args.Add("23");
             }
         }
         else {
             // 软件编码使用 CRF
-            args.Add($"-crf {_options.Quality}");
+            args.Add("-crf");
+            args.Add(_options.Quality.ToString());
         }
-
+            
         // 覆盖标志
         args.Add(_options.AutoOverwrite ? "-y" : "-n");
-
+            
         // 目标文件
-        args.Add($"\"{targetFile}\"");
-
-        return string.Join(" ", args);
+        args.Add(targetFile);
+            
+        return args;
     }
 }

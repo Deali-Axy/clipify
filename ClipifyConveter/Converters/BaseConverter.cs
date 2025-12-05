@@ -13,12 +13,12 @@ public abstract class BaseConverter : IConverter {
     public abstract ConverterOptions Options { get; }
 
     /// <summary>
-    /// 生成 FFmpeg 命令参数
+    /// 生成 FFmpeg 命令参数列表
     /// </summary>
     /// <param name="sourceFile">源文件路径</param>
     /// <param name="targetFile">目标文件路径</param>
-    /// <returns>FFmpeg 命令参数</returns>
-    protected abstract string GenerateFfmpegArguments(string sourceFile, string targetFile);
+    /// <returns>FFmpeg 命令参数列表</returns>
+    protected abstract List<string> GenerateFfmpegArguments(string sourceFile, string targetFile);
 
     /// <summary>
     /// 配置转换器选项
@@ -46,9 +46,9 @@ public abstract class BaseConverter : IConverter {
             Console.WriteLine($"处理文件：{sourceFile}");
 
             var targetFile = Path.ChangeExtension(sourceFile, TargetExtension);
-            var arguments = GenerateFfmpegArguments(sourceFile, targetFile);
+            var argumentsList = GenerateFfmpegArguments(sourceFile, targetFile);
 
-            if (await ExecuteFfmpegAsync(arguments)) {
+            if (await ExecuteFfmpegAsync(argumentsList)) {
                 Console.WriteLine($"转换完成：{targetFile}");
                 successCount++;
             }
@@ -64,13 +64,18 @@ public abstract class BaseConverter : IConverter {
     /// <summary>
     /// 执行 FFmpeg 命令
     /// </summary>
-    protected virtual async Task<bool> ExecuteFfmpegAsync(string arguments) {
-        var psi = new ProcessStartInfo("ffmpeg", arguments) {
+    protected virtual async Task<bool> ExecuteFfmpegAsync(List<string> arguments) {
+        var psi = new ProcessStartInfo("ffmpeg") {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
+        
+        // 添加参数列表
+        foreach (var arg in arguments) {
+            psi.ArgumentList.Add(arg);
+        }
 
         using var process = new Process { StartInfo = psi };
 
