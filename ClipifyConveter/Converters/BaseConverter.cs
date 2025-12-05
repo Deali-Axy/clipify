@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using ClipifyConveter.Converters.Options;
 
 namespace ClipifyConveter.Converters;
 
@@ -9,6 +10,7 @@ public abstract class BaseConverter : IConverter {
     public abstract string Name { get; }
     public abstract string SourceExtension { get; }
     public abstract string TargetExtension { get; }
+    public abstract ConverterOptions Options { get; }
 
     /// <summary>
     /// 生成 FFmpeg 命令参数
@@ -17,6 +19,14 @@ public abstract class BaseConverter : IConverter {
     /// <param name="targetFile">目标文件路径</param>
     /// <returns>FFmpeg 命令参数</returns>
     protected abstract string GenerateFfmpegArguments(string sourceFile, string targetFile);
+    
+    /// <summary>
+    /// 配置转换器选项
+    /// </summary>
+    public virtual void Configure()
+    {
+        // 子类可以重写此方法实现交互式配置
+    }
 
     public virtual async Task<bool> ConvertAsync(string targetDirectory) {
         if (!Directory.Exists(targetDirectory)) {

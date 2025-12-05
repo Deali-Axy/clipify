@@ -51,6 +51,10 @@ Console.WriteLine();
 // 执行转换
 foreach (var converter in selectedConverters) {
     Console.WriteLine($"===== 开始执行：{converter.Name} =====");
+    
+    // 配置转换器（如果支持）
+    converter.Configure();
+    
     await converter.ConvertAsync(targetDirectory);
     Console.WriteLine();
 }
