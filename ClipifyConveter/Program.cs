@@ -1,52 +1,60 @@
-﻿// See https://aka.ms/new-console-template for more information
+﻿using ClipifyConveter.Converters;
 
-using System.Diagnostics;
+Console.WriteLine("=== Clipify 视频转换工具 ===");
+Console.WriteLine();
 
 // 可以通过命令行参数指定处理目录，如果没有则使用当前目录
 var targetDirectory = args.Length > 0 ? args[0] : Directory.GetCurrentDirectory();
 
-// 获取所有 .ts 文件
-var tsFiles = Directory.GetFiles(targetDirectory, "*.ts", SearchOption.TopDirectoryOnly);
+Console.WriteLine($"目标目录：{targetDirectory}");
+Console.WriteLine();
 
-Console.WriteLine($"Found {tsFiles.Length} ts files");
+// 注册所有可用的转换器
+var converters = new List<IConverter> {
+    new TsToMp4Converter(),
+    new MkvToMp4Converter()
+};
 
-foreach (var tsFile in tsFiles) {
-    Console.WriteLine($"处理文件：{tsFile}");
-
-    // 将.ts扩展名改为.mp4
-    var mp4File = Path.ChangeExtension(tsFile, ".mp4");
-
-    // -y 表示自动覆盖同名文件，如果不想自动覆盖可以去掉 -y
-    // -c copy 只做封装转换，不做重新编码
-    var arguments = $"-i \"{tsFile}\" -c copy -y \"{mp4File}\"";
-
-    // 这里假设本地/环境中已经装好 ffmpeg，并且它在 PATH 中可以直接被调用
-    var psi = new ProcessStartInfo("ffmpeg", arguments) {
-        RedirectStandardOutput = true,
-        RedirectStandardError = true,
-        UseShellExecute = false,
-        CreateNoWindow = true
-    };
-
-    using var process = new Process { StartInfo = psi };
-    // 如果想查看输出，可以添加事件处理
-    process.OutputDataReceived += (sender, e) => {
-        if (!string.IsNullOrEmpty(e.Data))
-            Console.WriteLine(e.Data);
-    };
-    process.ErrorDataReceived += (sender, e) => {
-        if (!string.IsNullOrEmpty(e.Data))
-            Console.WriteLine(e.Data);
-    };
-
-    process.Start();
-    process.BeginOutputReadLine();
-    process.BeginErrorReadLine();
-
-    process.WaitForExit();
-    Console.WriteLine($"转换完成：{mp4File}");
+// 显示可用的转换器
+Console.WriteLine("可用的转换器：");
+for (int i = 0; i < converters.Count; i++) {
+    Console.WriteLine(
+        $"{i + 1}. {converters[i].Name} ({converters[i].SourceExtension} -> {converters[i].TargetExtension})");
 }
 
-Console.WriteLine("所有文件处理完毕。");
+Console.WriteLine();
 
+// 选择转换器
+Console.Write("请选择转换器编号（直接回车执行所有转换器）：");
+var input = Console.ReadLine();
+Console.WriteLine();
+
+List<IConverter> selectedConverters;
+if (string.IsNullOrWhiteSpace(input)) {
+    // 执行所有转换器
+    selectedConverters = converters;
+    Console.WriteLine("将执行所有转换器...");
+}
+else if (int.TryParse(input, out var index) && index > 0 && index <= converters.Count) {
+    // 执行选定的转换器
+    selectedConverters = new List<IConverter> { converters[index - 1] };
+    Console.WriteLine($"将执行：{converters[index - 1].Name}");
+}
+else {
+    Console.WriteLine("无效的选择！");
+    Console.Read();
+    return;
+}
+
+Console.WriteLine();
+
+// 执行转换
+foreach (var converter in selectedConverters) {
+    Console.WriteLine($"===== 开始执行：{converter.Name} =====");
+    await converter.ConvertAsync(targetDirectory);
+    Console.WriteLine();
+}
+
+Console.WriteLine("所有转换任务已完成！");
+Console.WriteLine("按任意键退出...");
 Console.Read();
