@@ -2,6 +2,7 @@
   <PropertyGroup>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Follow the installed C# version for the selected .NET 10 SDK feature band. -->
     <LangVersion>latest</LangVersion>
     <Deterministic>true</Deterministic>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
