@@ -127,6 +127,20 @@ PhotinoX 版本完成验收后：
 
 CLI/MCP 不引用 `Clipify.UI`，GUI 不通过启动 CLI 子进程来调用功能。
 
+### 2.9 使用 EF Core 10 访问 SQLite
+
+持久化层正式采用：
+
+- EF Core 10 作为主要 ORM；
+- `Microsoft.EntityFrameworkCore.Sqlite` 作为数据库 Provider；
+- `Microsoft.Data.Sqlite` 作为底层 SQLite 驱动；
+- EF Core Migrations 管理 Schema；
+- `IDbContextFactory<ClipifyDbContext>` 管理短生命周期 DbContext。
+
+普通业务访问使用 EF Core LINQ。少数任务 Claim、Lease、Heartbeat 等原子调度操作，通过 EF Core 管理的连接执行参数化 `DbCommand`。
+
+首版不引入 Dapper，不使用 EF Core InMemory Provider 模拟 SQLite，不在 EF Core 上再包装泛型 Repository。
+
 ## 3. 当前代码的主要问题
 
 ### 3.1 UI 与 FFmpeg 强耦合
@@ -263,7 +277,36 @@ SQLite 持久化实现。
 - 最近使用的设置；
 - 应用异常退出后的状态修复。
 
-首版可以使用 `Microsoft.Data.Sqlite` 和显式 SQL，避免为了少量表结构引入重量级 ORM。若实现团队更熟悉 EF Core，也可以使用 EF Core SQLite，但不能让数据库实体泄漏到 Domain。
+使用：
+
+```text
+Microsoft.EntityFrameworkCore.Sqlite 10.x
+Microsoft.EntityFrameworkCore.Design 10.x（仅设计时）
+```
+
+数据访问规则：
+
+- 普通 CRUD、筛选、分页和历史查询使用 EF Core LINQ；
+- 批量状态更新优先使用 `ExecuteUpdateAsync`；
+- 普通原生 SQL 使用 EF Core 参数化 API；
+- Job Claim、Lease 等需要精确原子语义的操作，通过 `Database.GetDbConnection()` 创建参数化 `DbCommand`；
+- 原生命令必须复用当前 EF Core Connection/Transaction；
+- 禁止字符串拼接 SQL；
+- 首版不引入 Dapper。
+
+`ClipifyDbContext` 通过 `AddDbContextFactory` 注册。Job Worker、GUI、CLI 和 MCP 每个持久化操作创建并释放自己的短生命周期 DbContext，不能跨线程共享实例。
+
+Persistence 内部使用 `MediaJobEntity`、`MediaArtifactEntity` 等数据库实体，并映射为 Domain Snapshot。禁止向 Domain/Application 暴露 EF Entity、`DbContext` 或 `IQueryable`。
+
+不实现 `GenericRepository<TEntity>`。只提供面向业务语义的实现，例如：
+
+```text
+EfMediaJobStore
+EfMediaArtifactStore
+EfSettingsStore
+```
+
+Migration 由 EF Core 管理。由于 GUI、CLI、MCP 可能同时启动，数据库初始化必须先获取跨进程 Migration Lock，再执行 `MigrateAsync`，不能让多个入口并发迁移。
 
 ### 4.5 Clipify.UI
 
@@ -452,6 +495,7 @@ Queued
 推荐实现：
 
 - SQLite 是任务状态的事实来源；
+- 常规持久化由 EF Core 10 实现；
 - `System.Threading.Channels` 只作为 Worker 的有界唤醒/调度机制；
 - `MediaJobWorker : BackgroundService` 消费任务；
 - Worker 启动时从 SQLite 查找待运行任务；
@@ -477,6 +521,7 @@ CancelRequestedAt
 规则：
 
 - Worker 必须通过 SQLite 事务原子 Claim 任务；
+- Claim/Lease 使用 EF Core 管理连接上的参数化 `DbCommand`；
 - Claim 同时检查全局并发限制；
 - 运行期间定期续租；
 - 每个运行任务持有一个独占 Job Lock 文件，作为进程仍然存活的第二重证据；
@@ -1091,10 +1136,15 @@ OutputConflictError
 ### 13.4 Persistence
 
 - SQLite Schema Migration；
+- `IDbContextFactory` 生命周期和并发隔离；
+- EF Entity 与 Domain 模型映射；
 - 并发状态更新；
+- 参数化 Claim/Lease SQL；
 - 应用重启后的队列恢复；
 - Running 到 Interrupted 的修复；
 - 历史和产物查询。
+
+Persistence 测试使用真实 SQLite 临时文件数据库，或保持 Connection 存活的 SQLite in-memory 模式。禁止使用 `Microsoft.EntityFrameworkCore.InMemory` 替代 SQLite 行为。
 
 ### 13.5 UI
 
@@ -1232,10 +1282,12 @@ osx-arm64
 ### 阶段 3：Domain、Application 与任务系统
 
 - 建立 Job 模型和状态机；
-- 实现 SQLite Job Store；
+- 使用 EF Core 10 和 SQLite 实现 Job Store；
+- 建立 `ClipifyDbContext`、Entity Mapping 和 Migrations；
+- 使用 `IDbContextFactory` 管理短生命周期 Context；
 - 实现 Channel 唤醒和 BackgroundService Worker；
 - 实现排队、取消、重试、历史和中断修复；
-- 实现跨进程 Claim、Lease、Heartbeat 和 Job Lock；
+- 使用参数化 `DbCommand` 实现跨进程 Claim、Lease、Heartbeat 和 Job Lock；
 - 使用 Fake Handler 完成全部任务系统测试。
 
 验收：
@@ -1371,9 +1423,11 @@ osx-arm64
 11. 不用 `Task<bool>` 或空 catch 隐藏错误。
 12. 不使用 `async void`，UI 事件入口除外；即使是 UI 入口也应立即委托给可等待方法。
 13. 不在 MCP 中暴露任意 Shell、原始 FFmpeg 参数或无限制文件系统访问。
-14. 每次新增 NuGet 包必须说明用途和替代方案。
-15. 每个里程碑结束必须运行 Build、Tests，并更新本文档中的实际偏差。
-16. 如果实现发现方案与平台现实冲突，先记录 ADR，不得静默改变架构。
+14. Persistence 普通访问使用 EF Core LINQ，原子调度 SQL 使用 EF Core Connection 上的参数化 DbCommand。
+15. 首版不引入 Dapper、EF Core InMemory Provider 或泛型 Repository。
+16. 每次新增 NuGet 包必须说明用途和替代方案。
+17. 每个里程碑结束必须运行 Build、Tests，并更新本文档中的实际偏差。
+18. 如果实现发现方案与平台现实冲突，先记录 ADR，不得静默改变架构。
 
 建议 Cursor 每阶段输出：
 
@@ -1396,6 +1450,7 @@ osx-arm64
 - 云端转码；
 - 远程 HTTP MCP Server；
 - 常驻 Clipify Daemon；
+- 首版引入 Dapper；
 - 分布式任务队列；
 - 通用 DAG 工作流平台；
 - 多用户；
@@ -1425,6 +1480,7 @@ osx-arm64
 - xFFmpeg.NET 已退出活动代码；
 - FFmpeg 进度、取消和错误处理可靠；
 - 所有媒体处理通过持久化异步任务系统执行；
+- SQLite 持久化使用 EF Core 10，原子任务调度使用参数化 DbCommand；
 - 应用崩溃或强制退出后任务状态可解释；
 - 失败和取消不会留下伪完整文件；
 - 核心功能有自动化测试；
@@ -1441,6 +1497,9 @@ osx-arm64
 - [BlazorBlueprint.Components NuGet](https://www.nuget.org/packages/BlazorBlueprint.Components)
 - [.NET Hosted Services 与有界 Channel 队列](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services?view=aspnetcore-10.0)
 - [Microsoft：System.CommandLine](https://learn.microsoft.com/en-us/dotnet/standard/commandline/)
+- [EF Core：DbContext 生命周期与 IDbContextFactory](https://learn.microsoft.com/en-us/ef/core/dbcontext-configuration/)
+- [EF Core：SQLite Provider 限制](https://learn.microsoft.com/en-us/ef/core/providers/sqlite/limitations)
+- [Microsoft.Data.Sqlite：事务](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/transactions)
 - [MCP 官方 C# SDK](https://github.com/modelcontextprotocol/csharp-sdk)
 - [MCP C# SDK：stdio Server 入门](https://csharp.sdk.modelcontextprotocol.io/concepts/getting-started.html)
 - [MCP Security Best Practices](https://modelcontextprotocol.io/docs/tutorials/security/security_best_practices)
