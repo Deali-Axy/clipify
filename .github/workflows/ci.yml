@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [master, "modernization/**"]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore (new architecture)
+        run: |
+          dotnet restore src/Clipify.Desktop/Clipify.Desktop.csproj
+          dotnet restore src/Clipify.Cli/Clipify.Cli.csproj
+          dotnet restore src/Clipify.Mcp/Clipify.Mcp.csproj
+          dotnet restore tests/Clipify.Domain.Tests/Clipify.Domain.Tests.csproj
+          dotnet restore tests/Clipify.Application.Tests/Clipify.Application.Tests.csproj
+          dotnet restore tests/Clipify.FFmpeg.Tests/Clipify.FFmpeg.Tests.csproj
+          dotnet restore tests/Clipify.Persistence.Tests/Clipify.Persistence.Tests.csproj
+          dotnet restore tests/Clipify.Cli.Tests/Clipify.Cli.Tests.csproj
+          dotnet restore tests/Clipify.Mcp.Tests/Clipify.Mcp.Tests.csproj
+          dotnet restore tests/Clipify.UI.Tests/Clipify.UI.Tests.csproj
+
+      - name: Build (new architecture)
+        run: |
+          dotnet build src/Clipify.Desktop/Clipify.Desktop.csproj -c Release --no-restore
+          dotnet build src/Clipify.Cli/Clipify.Cli.csproj -c Release --no-restore
+          dotnet build src/Clipify.Mcp/Clipify.Mcp.csproj -c Release --no-restore
+
+      - name: Test
+        run: |
+          dotnet test tests/Clipify.Domain.Tests/Clipify.Domain.Tests.csproj -c Release --no-restore --verbosity normal
+          dotnet test tests/Clipify.Application.Tests/Clipify.Application.Tests.csproj -c Release --no-restore --verbosity normal
+          dotnet test tests/Clipify.FFmpeg.Tests/Clipify.FFmpeg.Tests.csproj -c Release --no-restore --verbosity normal
+          dotnet test tests/Clipify.Persistence.Tests/Clipify.Persistence.Tests.csproj -c Release --no-restore --verbosity normal
+          dotnet test tests/Clipify.Cli.Tests/Clipify.Cli.Tests.csproj -c Release --no-restore --verbosity normal
+          dotnet test tests/Clipify.Mcp.Tests/Clipify.Mcp.Tests.csproj -c Release --no-restore --verbosity normal
+          dotnet test tests/Clipify.UI.Tests/Clipify.UI.Tests.csproj -c Release --no-restore --verbosity normal
+
+      - name: Build legacy Core
+        run: dotnet build Clipify.Core/Clipify.Core.csproj -c Release
+
+      - name: Build legacy Forms (Windows only)
+        if: runner.os == 'Windows'
+        run: dotnet build Clipify.Forms/Clipify.Forms.csproj -c Release
+
+      - name: Build legacy Converter
+        run: dotnet build ClipifyConveter/ClipifyConveter.csproj -c Release
