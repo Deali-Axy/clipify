@@ -3,13 +3,14 @@
 > 状态：已确认，供后续实现使用  
 > 日期：2026-07-26  
 > 目标框架：.NET 10  
-> 目标平台：Windows、macOS、Linux 桌面端
+> 目标平台：Windows、macOS、Linux  
+> 产品入口：Blazor Hybrid GUI、CLI、MCP Server
 
 ## 1. 文档目的
 
 本文档将现阶段已经确认的技术决策整理为可执行的工程方案，作为后续使用 Cursor 实施重构时的主要依据。
 
-本次工作不是在现有代码上继续堆功能，而是在保留 Clipify 核心特色——Blazor Hybrid——的前提下，重建跨平台桌面宿主、FFmpeg 基础设施和异步媒体任务系统。
+本次工作不是在现有代码上继续堆功能，而是在保留 Clipify 核心特色——Blazor Hybrid——的前提下，重建跨平台桌面宿主、FFmpeg 基础设施和异步媒体任务系统，并提供 CLI 与 MCP 两个自动化入口，使相同能力可以被脚本、CI 和 AI Agent 调用。
 
 实施过程中应优先保证：
 
@@ -17,6 +18,7 @@
 2. UI、业务流程、FFmpeg 和桌面平台能力之间保持明确边界。
 3. 不把 PhotinoX、Blazor Blueprint 或 FFmpeg.NET 类型泄漏到核心业务层。
 4. 在新版本达到功能对等之前，保留 WinForms 版本作为行为参考。
+5. GUI、CLI、MCP 只做输入输出适配，不重复实现视频处理逻辑。
 
 ## 2. 已确认的技术决策
 
@@ -108,6 +110,23 @@ PhotinoX 版本完成验收后：
 3. 更新 README，仅描述新的跨平台版本；
 4. 是否从主分支删除 WinForms 源码，以最终迁移 PR 的决定为准。
 
+### 2.8 CLI 与 MCP 是一等入口
+
+除 GUI 外，Clipify 同时提供：
+
+- `clipify`：面向用户、脚本和 CI 的命令行程序；
+- `clipify-mcp`：面向 Claude Code 等 Agent 的本地 MCP stdio Server。
+
+三个入口共享：
+
+- 相同的 Application Use Cases；
+- 相同的异步任务系统；
+- 相同的 FFmpeg/ffprobe 实现；
+- 相同的 SQLite 任务历史；
+- 相同的校验、错误代码和输出安全规则。
+
+CLI/MCP 不引用 `Clipify.UI`，GUI 不通过启动 CLI 子进程来调用功能。
+
 ## 3. 当前代码的主要问题
 
 ### 3.1 UI 与 FFmpeg 强耦合
@@ -165,14 +184,19 @@ src/
   Clipify.Application/
   Clipify.FFmpeg/
   Clipify.Persistence/
+  Clipify.Hosting/
   Clipify.UI/
   Clipify.Desktop/
+  Clipify.Cli/
+  Clipify.Mcp/
 
 tests/
   Clipify.Domain.Tests/
   Clipify.Application.Tests/
   Clipify.FFmpeg.Tests/
   Clipify.Persistence.Tests/
+  Clipify.Cli.Tests/
+  Clipify.Mcp.Tests/
   Clipify.UI.Tests/
 ```
 
@@ -257,7 +281,20 @@ Razor Class Library，包含全部共享 UI：
 
 该项目引用 `Clipify.Application`，不能引用 PhotinoX 或 `System.Diagnostics.Process`。
 
-### 4.6 Clipify.Desktop
+### 4.6 Clipify.Hosting
+
+三个入口共享的 Generic Host 装配层：
+
+- 注册 Application；
+- 注册 Job Store、Queue 和 Worker；
+- 注册 FFmpeg 与 ffprobe；
+- 注册 SQLite 和日志；
+- 绑定应用配置；
+- 提供入口一致的启动、停止和诊断检查。
+
+该项目是 Composition Root 的复用层，不包含 UI、命令解析或 MCP Tool。
+
+### 4.7 Clipify.Desktop
 
 唯一可执行桌面项目，负责：
 
@@ -275,18 +312,46 @@ Razor Class Library，包含全部共享 UI：
 
 PhotinoX 类型只能出现在本项目。
 
+### 4.8 Clipify.Cli
+
+跨平台控制台程序，输出名称为 `clipify`。
+
+负责：
+
+- 使用 System.CommandLine 定义命令、参数和帮助；
+- 将命令转换为 Application Request；
+- 显示人类可读进度；
+- 为自动化提供稳定的 JSON/JSON Lines 输出；
+- 将应用错误映射为稳定 Exit Code。
+
+CLI 不自行拼接 FFmpeg 命令，也不包含媒体业务规则。
+
+### 4.9 Clipify.Mcp
+
+本地 MCP stdio Server，输出名称为 `clipify-mcp`。
+
+负责：
+
+- 使用官方 `ModelContextProtocol` C# SDK；
+- 将 MCP Tools 映射到 Application Use Cases；
+- 提供面向 Agent 的 JSON Schema、描述和风险注解；
+- 对文件系统访问实施独立于 MCP Roots 的强制路径限制；
+- 将日志写入 stderr，保持 stdout 只承载 MCP JSON-RPC。
+
+首版不提供远程 HTTP MCP 服务。
+
 ## 5. 依赖方向
 
 ```text
-Clipify.Desktop ───────────────┐
-      │                        │
-      ├── Clipify.UI           │
-      ├── Clipify.Persistence  │
-      └── Clipify.FFmpeg       │
-                │              │
-                └── Clipify.Application
-                           │
-                     Clipify.Domain
+Clipify.Desktop ──┐
+Clipify.Cli ──────┼── Clipify.Hosting ─┬── Clipify.Persistence
+Clipify.Mcp ──────┘                    └── Clipify.FFmpeg
+       │                                       │
+       └── Clipify.Application ────────────────┘
+                    │
+              Clipify.Domain
+
+Clipify.Desktop ──> Clipify.UI ──> Clipify.Application
 ```
 
 禁止出现：
@@ -297,6 +362,9 @@ Clipify.Desktop ───────────────┐
 - FFmpeg 层弹出 Toast/Dialog；
 - Razor 组件直接访问数据库；
 - Desktop 类型泄漏到共享 Razor 组件。
+- CLI 启动 GUI 完成任务；
+- MCP 启动 CLI 并解析其文本输出；
+- 三个入口各自实现一套业务规则。
 
 ## 6. 异步媒体任务系统
 
@@ -311,7 +379,9 @@ Clipify.Desktop ───────────────┐
 - 缩略图生成；
 - 后续可能增加的合并、压缩和批处理。
 
-系统是单机、单应用进程架构，不引入 Hangfire、RabbitMQ、Redis 或分布式调度。
+系统是单机、本地进程架构，不引入 Hangfire、RabbitMQ、Redis 或分布式调度。
+
+GUI、CLI、MCP 可能同时运行，因此“单机”不等于“永远只有一个进程”。任务存储必须支持多个 Clipify 入口安全地观察和竞争任务，但不把它扩展成网络分布式系统。
 
 ### 6.2 核心接口
 
@@ -352,6 +422,8 @@ IMediaArtifactStore
 IJobCancellationRegistry
 ```
 
+所有入口使用相同接口。GUI、CLI、MCP 不允许绕过 `IMediaJobService` 直接调用 Handler。
+
 ### 6.3 状态机
 
 首版状态：
@@ -383,13 +455,40 @@ Queued
 - `System.Threading.Channels` 只作为 Worker 的有界唤醒/调度机制；
 - `MediaJobWorker : BackgroundService` 消费任务；
 - Worker 启动时从 SQLite 查找待运行任务；
+- Worker 使用短周期 `PeriodicTimer` 扫描数据库，以发现由其他 Clipify 进程提交的任务；
 - 默认并发数为 1，设置页允许调整为 1～2；
 - 同优先级按创建时间 FIFO；
 - 队列必须有界，避免批量导入时无限占用内存。
 
 不要只把任务对象放进内存 Channel，否则应用退出后排队任务会丢失。
 
-### 6.5 进度模型
+### 6.5 多入口与任务租约
+
+为了避免 GUI、CLI 和 MCP 同时执行同一任务，Job Store 增加：
+
+```text
+LeaseOwner
+LeaseAcquiredAt
+LeaseExpiresAt
+HeartbeatAt
+CancelRequestedAt
+```
+
+规则：
+
+- Worker 必须通过 SQLite 事务原子 Claim 任务；
+- Claim 同时检查全局并发限制；
+- 运行期间定期续租；
+- 每个运行任务持有一个独占 Job Lock 文件，作为进程仍然存活的第二重证据；
+- 其他进程只能观察任务或设置 `CancelRequestedAt`；
+- 实际运行任务的 Worker 轮询取消请求并触发本地 CancellationToken；
+- 发现过期租约且独占 Lock 已释放时，将任务标记为 `Interrupted`；
+- 不自动重新执行 Interrupted 的 FFmpeg 任务，避免重复覆盖输出；
+- SQLite Busy/Locked 使用有限退避重试，不能无限阻塞 UI 或 MCP Tool。
+
+首版不增加常驻 Daemon。GUI、CLI、MCP 都可以在自身进程中启动 Worker。未来若需要“关闭全部入口后任务仍继续运行”，可以增加 `Clipify.Daemon`，但必须复用相同的 Job Store 和 Application Contract。
+
+### 6.6 进度模型
 
 进度不能只有一个 `double`。建议至少包含：
 
@@ -413,7 +512,7 @@ public sealed record MediaJobProgress(
 - 完整 FFmpeg 日志写滚动日志文件；
 - SQLite 只保存摘要、错误信息和日志文件位置。
 
-### 6.6 工作流扩展
+### 6.7 工作流扩展
 
 首版不要实现通用 DAG 工作流引擎。
 
@@ -436,7 +535,7 @@ Probe
 
 以后出现真正需要并行依赖的场景，再扩展成 DAG。
 
-### 6.7 应用退出
+### 6.8 应用退出
 
 关闭应用时：
 
@@ -448,6 +547,8 @@ Probe
 6. 刷新状态和日志后退出。
 
 不能让 Photino 窗口关闭后残留 FFmpeg 或 .NET 后台进程。
+
+CLI 的普通媒体命令默认等待自己提交的任务完成。首版不提供无法保证后台 Worker 存活的 `--detach`。MCP Server 可以返回 JobId 后继续在 stdio 会话期间运行 Worker。
 
 ## 7. FFmpeg 层重新设计
 
@@ -673,7 +774,261 @@ IMediaResourceProvider
 - 用户媒体不暴露为任意可导航的 WebView 文件 URL；
 - 所有 WebView 到本地能力的入口都要验证参数和来源。
 
-## 10. 错误模型与日志
+## 10. CLI 设计
+
+### 10.1 命令结构
+
+使用官方 `System.CommandLine`，初始命令建议：
+
+```text
+clipify doctor
+clipify probe <input>
+clipify trim <input> --start <time> --end <time> --output <path>
+clipify extract-audio <input> --output <path> [--format <format>]
+clipify thumbnail <input> --output <path> [--at <time>]
+
+clipify jobs list
+clipify jobs get <job-id>
+clipify jobs wait <job-id>
+clipify jobs cancel <job-id>
+clipify jobs retry <job-id>
+```
+
+后续能力成熟后再增加：
+
+```text
+clipify convert
+clipify merge
+clipify batch
+```
+
+CLI 命令必须调用 Application Use Case，不能自己拼 FFmpeg 参数。
+
+### 10.2 输出模式
+
+支持三种输出：
+
+```text
+默认          面向人类的文本、进度条和摘要
+--json        stdout 只输出最终 JSON
+--jsonl       stdout 输出结构化事件流
+```
+
+规则：
+
+- stdout 是结果通道；
+- stderr 是诊断和人类可读进度通道；
+- `--json` 下不能混入日志、Banner 或进度文本；
+- JSON 字段使用稳定的 snake_case；
+- 时间使用 ISO 8601，时长同时提供机器可读毫秒值；
+- JobId、状态和错误代码必须稳定；
+- 完整 FFmpeg stderr 不直接写入 JSON，返回截断摘要和日志路径。
+
+### 10.3 Exit Code
+
+首版固定：
+
+| Code | 含义 |
+|---:|---|
+| 0 | 成功 |
+| 1 | 未分类内部错误 |
+| 2 | 参数或校验错误 |
+| 3 | 文件不存在或无权限 |
+| 4 | FFmpeg/ffprobe 不可用 |
+| 5 | 媒体任务失败 |
+| 6 | 任务被取消 |
+| 7 | 任务被中断 |
+
+不得根据错误消息文本推断 Exit Code。
+
+### 10.4 CLI 行为
+
+- 普通媒体命令提交 Job 后等待完成；
+- `Ctrl+C` 第一次请求取消任务并等待清理；
+- 第二次 `Ctrl+C` 可以强制结束，但仍应尽量标记 Interrupted；
+- `jobs` 命令操作共享 SQLite Job Store；
+- `doctor` 检查 FFmpeg、ffprobe、SQLite、运行目录和平台依赖；
+- 默认不覆盖输出文件；
+- CLI 的功能和 GUI 保持相同，不增加“仅 CLI 可用的原始 FFmpeg 参数”逃生口。
+
+## 11. MCP Server 设计
+
+### 11.1 SDK 与传输
+
+使用官方 `ModelContextProtocol` C# SDK：
+
+```text
+ModelContextProtocol
+Microsoft.Extensions.Hosting
+```
+
+首版只支持 stdio：
+
+- 适合 Claude Code、IDE 和本地 Agent 按需启动；
+- stdout 专用于 MCP JSON-RPC；
+- 所有日志写 stderr；
+- 不监听 TCP 端口；
+- 不实现鉴权和远程多租户；
+- 不依赖实验性的 MCP 长任务扩展。
+
+远程 Streamable HTTP 必须作为独立安全设计处理，不能简单给 stdio Server 增加一个监听地址。
+
+### 11.2 MCP Tools
+
+首版工具：
+
+| Tool | 类型 | 说明 |
+|---|---|---|
+| `get_capabilities` | 只读 | 返回版本、格式、编解码能力和路径策略 |
+| `probe_media` | 只读 | 返回媒体、容器和流信息 |
+| `trim_video` | 写入 | 创建视频裁剪任务 |
+| `extract_audio` | 写入 | 创建音频提取任务 |
+| `generate_thumbnail` | 写入 | 创建缩略图任务 |
+| `list_jobs` | 只读 | 查询任务摘要 |
+| `get_job` | 只读 | 查询一个任务和产物 |
+| `wait_job` | 只读 | 有限时间等待状态变化 |
+| `cancel_job` | 写入 | 请求取消任务 |
+| `retry_job` | 写入 | 基于失败/中断任务创建新任务 |
+
+工具名称使用稳定的 snake_case。新增工具不能改变现有 Tool 的输入/输出语义。
+
+`list_jobs` 必须支持状态过滤、游标或分页，默认返回不超过 20 项并设置合理上限。`get_job` 只返回日志摘要和有限长度的尾部内容，完整日志通过受限本地路径定位，避免消耗大量 Agent Context。
+
+不要提供：
+
+- `run_ffmpeg(arguments)`；
+- 任意 Shell 命令；
+- 任意 URL 下载；
+- 删除任意本地文件；
+- 将完整视频内容作为 MCP Content 返回。
+
+### 11.3 长任务语义
+
+媒体处理 Tool 默认快速返回：
+
+```json
+{
+  "job_id": "01...",
+  "state": "queued",
+  "operation": "trim_video",
+  "created_at": "2026-07-26T00:00:00Z"
+}
+```
+
+Agent 后续调用：
+
+```text
+get_job(job_id)
+wait_job(job_id, timeout_seconds)
+```
+
+`wait_job`：
+
+- 单次等待设置较小上限，例如 60 秒；
+- 超时不是任务失败，返回最新 Snapshot；
+- 支持客户端取消；
+- 不在一次响应中返回无限增长的日志；
+- 任务完成后返回产物路径、大小、媒体摘要和结构化错误。
+
+即使未来 MCP SDK 提供协议级长任务能力，也应先保留现有 Job API，避免绑定单一客户端或实验协议。
+
+### 11.4 Tool Schema
+
+Tool 参数使用明确类型和描述：
+
+- 输入路径；
+- 输出路径；
+- 开始/结束时间；
+- 输出格式；
+- 冲突策略；
+- 可选任务优先级。
+
+时间接受清晰、无歧义的格式，例如：
+
+```text
+HH:MM:SS.fff
+整数毫秒
+```
+
+响应统一包含：
+
+```text
+ok
+job_id
+state
+result
+error.code
+error.message
+warnings
+```
+
+MCP 层只做 Schema/DTO 到 Application Request 的映射，业务校验仍由 Application 执行。
+
+### 11.5 Tool Annotations
+
+为工具设置 MCP 风险提示：
+
+- 查询工具：`readOnlyHint=true`；
+- 创建新输出文件：`readOnlyHint=false`、`destructiveHint=false`；
+- `cancel_job` 会终止处理并清理临时输出，应标记为破坏性；
+- 允许覆盖输出时：按破坏性操作处理；
+- 重复执行会产生新 Job 的工具不能标记为幂等；
+- 本地、受限路径工具可设置 `openWorldHint=false`。
+
+Tool Annotations 只是提示，不能代替服务端权限校验。
+
+### 11.6 文件系统安全
+
+本地 MCP Server 与 Agent 具有相同的操作系统权限，因此必须额外限制：
+
+- 默认只允许访问 MCP Server 启动时的当前工作目录；
+- 使用可重复的 `--allow-root <path>` 或 `CLIPIFY_ALLOWED_ROOTS` 增加目录；
+- 输入和输出都必须位于允许目录；
+- 将 MCP Roots 作为额外提示，但不能把它当作安全边界；
+- 在访问前规范化绝对路径；
+- 处理 Windows 大小写、UNC、符号链接、目录联接和 `..`；
+- 默认禁止覆盖；
+- 输出目录不存在时是否创建必须显式；
+- 首版禁止网络 URL；
+- 不读取 SSH、凭据、系统目录等无关文件；
+- 错误响应避免泄露允许目录之外的路径信息。
+
+允许目录校验必须有跨平台单元测试和安全回归测试。
+
+### 11.7 Agent 集成
+
+发布包提供 Claude Code 示例：
+
+```json
+{
+  "mcpServers": {
+    "clipify": {
+      "type": "stdio",
+      "command": "/absolute/path/to/clipify-mcp",
+      "args": ["--allow-root", "/absolute/path/to/media-workspace"],
+      "env": {}
+    }
+  }
+}
+```
+
+实际配置格式应在发布时用当前 Claude Code 文档验证。不要在仓库提交用户机器的绝对路径。
+
+同时提供通用 stdio MCP 配置说明，不把产品文档绑定到 Claude Code 单一客户端。
+
+### 11.8 MCP Resources
+
+首版以 Tools 为主。稳定后可以增加只读 Resources：
+
+```text
+clipify://capabilities
+clipify://jobs/{jobId}
+clipify://jobs/{jobId}/artifacts
+```
+
+不通过 Resource 暴露原始媒体文件内容。
+
+## 12. 错误模型与日志
 
 不要继续使用 `Task<bool>`、吞异常后返回 `null` 的方式表达失败。
 
@@ -698,9 +1053,9 @@ OutputConflictError
 - 完整命令参数和 stderr 保留在诊断日志中；
 - 默认避免记录敏感目录之外的无关用户数据。
 
-## 11. 测试策略
+## 13. 测试策略
 
-### 11.1 Domain
+### 13.1 Domain
 
 - 时间范围验证；
 - 输出路径和冲突策略；
@@ -708,7 +1063,7 @@ OutputConflictError
 - 终态不可逆；
 - 重试关联。
 
-### 11.2 Application
+### 13.2 Application
 
 - 入队先持久化；
 - FIFO 和并发限制；
@@ -719,7 +1074,7 @@ OutputConflictError
 - 重试创建新任务；
 - 状态和进度事件顺序。
 
-### 11.3 FFmpeg
+### 13.3 FFmpeg
 
 - 参数列表快照测试；
 - 中文、空格、特殊字符路径；
@@ -733,7 +1088,7 @@ OutputConflictError
 
 测试媒体应体积很小，并明确其许可证和来源。也可以在测试准备阶段使用 FFmpeg lavfi 生成。
 
-### 11.4 Persistence
+### 13.4 Persistence
 
 - SQLite Schema Migration；
 - 并发状态更新；
@@ -741,7 +1096,7 @@ OutputConflictError
 - Running 到 Interrupted 的修复；
 - 历史和产物查询。
 
-### 11.5 UI
+### 13.5 UI
 
 使用 bUnit 覆盖：
 
@@ -753,7 +1108,28 @@ OutputConflictError
 - 错误状态；
 - Blazor Blueprint Provider 配置。
 
-### 11.6 平台 Smoke Test
+### 13.6 CLI
+
+- 命令解析与帮助；
+- 人类、JSON、JSONL 输出互不污染；
+- stdout/stderr 分离；
+- Exit Code；
+- Ctrl+C 取消；
+- 所有命令只调用 Application Contract。
+
+### 13.7 MCP
+
+- Tool Schema 快照；
+- Tool Annotations；
+- stdio stdout 无日志污染；
+- 路径根限制、路径穿越、符号链接和目录联接；
+- 长任务返回 JobId；
+- wait 超时语义；
+- Agent 取消 Tool Call；
+- 错误响应大小限制；
+- 与参考 MCP Client 的协议集成测试。
+
+### 13.8 平台 Smoke Test
 
 在 Windows、macOS、Linux 分别验证：
 
@@ -765,10 +1141,12 @@ OutputConflictError
 - 启动和取消 FFmpeg；
 - 打开输出目录；
 - 应用关闭无残留进程；
+- CLI 文本与 JSON 模式可运行；
+- MCP stdio 握手、Tool Discovery 和一次完整 Job 流程；
 - 深色/浅色主题；
 - 中文输入法和高 DPI。
 
-## 12. CI 与发布
+## 14. CI 与发布
 
 GitHub Actions 构建矩阵：
 
@@ -785,13 +1163,16 @@ macos-latest
 3. Unit Tests；
 4. FFmpeg Parser/Command Tests；
 5. bUnit；
-6. 格式和分析器检查。
+6. CLI Snapshot/Exit Code Tests；
+7. MCP Schema/Security/Protocol Tests；
+8. 格式和分析器检查。
 
 发布阶段：
 
 - Windows：先提供 self-contained ZIP，再增加安装包；
 - macOS：`.app` + 签名/公证，后续提供 DMG；
 - Linux：先提供 tarball，再评估 AppImage 或 Flatpak；
+- 每个平台同时发布 `clipify` 和 `clipify-mcp`；
 - 每个平台发布包包含对应 FFmpeg/ffprobe 或提供受控下载流程；
 - 生成第三方许可证清单和校验值。
 
@@ -804,7 +1185,7 @@ osx-x64
 osx-arm64
 ```
 
-## 13. 分阶段实施计划
+## 15. 分阶段实施计划
 
 ### 阶段 0：建立安全基线
 
@@ -854,12 +1235,14 @@ osx-arm64
 - 实现 SQLite Job Store；
 - 实现 Channel 唤醒和 BackgroundService Worker；
 - 实现排队、取消、重试、历史和中断修复；
+- 实现跨进程 Claim、Lease、Heartbeat 和 Job Lock；
 - 使用 Fake Handler 完成全部任务系统测试。
 
 验收：
 
 - 不依赖 FFmpeg 也能完整验证任务系统；
 - 应用重启后状态正确；
+- 两个测试 Host 不会重复执行同一 Job；
 - 并发限制可靠；
 - 没有 `async void` 任务事件。
 
@@ -879,10 +1262,46 @@ osx-arm64
 - 失败不会留下正式输出；
 - 中文路径测试通过。
 
-### 阶段 5：PhotinoX Shell
+### 阶段 5：共享 Hosting 与 CLI
+
+- 创建 `Clipify.Hosting`；
+- 统一注册任务、Persistence、FFmpeg 和日志；
+- 创建 `Clipify.Cli`；
+- 实现 probe、trim、extract-audio、thumbnail 和 jobs；
+- 实现文本、JSON、JSONL 输出；
+- 实现 Exit Code、Ctrl+C 和 doctor；
+- 清理 `ClipifyConveter`，将有价值的行为迁移到 CLI。
+
+验收：
+
+- CLI 与 Application 共享校验和任务执行；
+- JSON stdout 无日志污染；
+- CLI 不包含 FFmpeg 命令拼接；
+- Windows、macOS、Linux 行为一致；
+- 两个 CLI 进程不会重复执行 Job。
+
+### 阶段 6：MCP Server
+
+- 创建 `Clipify.Mcp`；
+- 接入官方 C# MCP SDK 和 stdio；
+- 实现首版 Tools 和 Schema；
+- 实现 JobId + get/wait 长任务语义；
+- 实现 allow-root、路径规范化和安全测试；
+- 添加 Claude Code 与通用 MCP 配置示例。
+
+验收：
+
+- stdout 只有 MCP JSON-RPC；
+- 参考 MCP Client 可发现并调用所有 Tools；
+- 不允许访问允许目录之外的输入或输出；
+- 写入工具包含正确风险注解；
+- 长任务不会让单次 Tool Call 无限等待；
+- MCP 与 GUI/CLI 共享任务历史且不重复执行。
+
+### 阶段 7：PhotinoX Shell
 
 - 创建 `Clipify.Desktop`；
-- 接入 Generic Host；
+- 复用 `Clipify.Hosting`；
 - 接入 `PhotinoX.Blazor`；
 - 实现平台服务；
 - 启动/停止 MediaJobWorker；
@@ -894,7 +1313,7 @@ osx-arm64
 - UI 和 Application 不引用 PhotinoX；
 - 关闭应用无残留任务和进程。
 
-### 阶段 6：Blazor Blueprint UI
+### 阶段 8：Blazor Blueprint UI
 
 - 创建 `Clipify.UI` RCL；
 - 配置 Blueprint Providers 和 Tailwind v4；
@@ -909,14 +1328,14 @@ osx-arm64
 - 任务中心可取消、重试和查看历史；
 - 组件在三个 WebView 引擎下可用。
 
-### 阶段 7：功能对等与 WinForms 归档
+### 阶段 9：功能对等与 WinForms 归档
 
 - 对照基线测试；
 - 修复新版本功能差异；
 - 创建 WinForms 归档 Tag；
 - 从活动解决方案移除 WinForms；
 - 清理重复服务和旧前端构建链；
-- 处理 `ClipifyConveter`：删除或改造成复用 Application 的 `Clipify.Cli`。
+- 删除已经由新 CLI 替代的 `ClipifyConveter`。
 
 验收：
 
@@ -925,15 +1344,17 @@ osx-arm64
 - 不再依赖 xFFmpeg.NET、AntDesign、Flowbite；
 - README 与真实构建方式一致。
 
-### 阶段 8：发布完善
+### 阶段 10：发布完善
 
 - 三平台安装和依赖检测；
+- CLI/MCP PATH 安装方式；
+- Claude Code 与通用 Agent 接入文档；
 - macOS 签名/公证；
 - Linux 包格式；
 - 崩溃日志和诊断导出；
 - 自动更新方案另行 ADR。
 
-## 14. Cursor 实施规则
+## 16. Cursor 实施规则
 
 交给 Cursor 实现时，应附带以下约束：
 
@@ -945,12 +1366,14 @@ osx-arm64
 6. 不为了“以后可能有用”引入通用工作流框架。
 7. 不让 UI 直接调用 FFmpeg 或 SQLite。
 8. 不把 PhotinoX 类型暴露给 UI/Application。
-9. 不用完整字符串拼接 FFmpeg 命令。
-10. 不用 `Task<bool>` 或空 catch 隐藏错误。
-11. 不使用 `async void`，UI 事件入口除外；即使是 UI 入口也应立即委托给可等待方法。
-12. 每次新增 NuGet 包必须说明用途和替代方案。
-13. 每个里程碑结束必须运行 Build、Tests，并更新本文档中的实际偏差。
-14. 如果实现发现方案与平台现实冲突，先记录 ADR，不得静默改变架构。
+9. 不让 CLI/MCP 复制或绕过 Application 业务规则。
+10. 不用完整字符串拼接 FFmpeg 命令。
+11. 不用 `Task<bool>` 或空 catch 隐藏错误。
+12. 不使用 `async void`，UI 事件入口除外；即使是 UI 入口也应立即委托给可等待方法。
+13. 不在 MCP 中暴露任意 Shell、原始 FFmpeg 参数或无限制文件系统访问。
+14. 每次新增 NuGet 包必须说明用途和替代方案。
+15. 每个里程碑结束必须运行 Build、Tests，并更新本文档中的实际偏差。
+16. 如果实现发现方案与平台现实冲突，先记录 ADR，不得静默改变架构。
 
 建议 Cursor 每阶段输出：
 
@@ -962,7 +1385,7 @@ osx-arm64
 - 已知问题；
 - 下一阶段前置条件。
 
-## 15. 明确的非目标
+## 17. 明确的非目标
 
 当前重构不包含：
 
@@ -971,23 +1394,32 @@ osx-arm64
 - 自研跨平台 BlazorWebView；
 - PhotinoX fork；
 - 云端转码；
+- 远程 HTTP MCP Server；
+- 常驻 Clipify Daemon；
 - 分布式任务队列；
 - 通用 DAG 工作流平台；
 - 多用户；
 - 插件市场；
 - 默认启用硬件编码；
 - 完整非线性视频编辑时间线；
-- 自动更新的最终选型。
+- 自动更新的最终选型；
+- 允许 Agent 执行任意 Shell/FFmpeg 参数。
 
 这些能力必须在基础架构稳定后单独评估。
 
-## 16. 完成定义
+## 18. 完成定义
 
 本轮现代化完成需同时满足：
 
 - 使用 .NET 10；
 - Windows、macOS、Linux 均由 PhotinoX 承载同一个 Blazor UI；
 - UI 使用 Blazor Blueprint；
+- 三个平台均提供 `clipify` CLI；
+- 三个平台均提供 `clipify-mcp` stdio Server；
+- GUI、CLI、MCP 共享 Application、FFmpeg 和 Job Store；
+- CLI JSON 输出和 Exit Code 稳定；
+- MCP Tool Schema、路径限制和风险注解具有自动化测试；
+- Claude Code 可以通过文档中的配置发现并调用 Clipify；
 - MAUI 已删除；
 - WinForms 已归档并退出活动解决方案；
 - xFFmpeg.NET 已退出活动代码；
@@ -999,7 +1431,7 @@ osx-arm64
 - 三平台具有可验证的发布产物；
 - README、构建说明和架构文档与实际代码一致。
 
-## 17. 参考资料
+## 19. 参考资料
 
 - [Microsoft：Blazor Hosting Models / Blazor Hybrid](https://learn.microsoft.com/en-us/aspnet/core/blazor/hosting-models?view=aspnetcore-10.0)
 - [PhotinoX.Blazor NuGet](https://www.nuget.org/packages/PhotinoX.Blazor)
@@ -1008,9 +1440,14 @@ osx-arm64
 - [Blazor Blueprint 组件列表](https://blazorblueprintui.com/components)
 - [BlazorBlueprint.Components NuGet](https://www.nuget.org/packages/BlazorBlueprint.Components)
 - [.NET Hosted Services 与有界 Channel 队列](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services?view=aspnetcore-10.0)
+- [Microsoft：System.CommandLine](https://learn.microsoft.com/en-us/dotnet/standard/commandline/)
+- [MCP 官方 C# SDK](https://github.com/modelcontextprotocol/csharp-sdk)
+- [MCP C# SDK：stdio Server 入门](https://csharp.sdk.modelcontextprotocol.io/concepts/getting-started.html)
+- [MCP Security Best Practices](https://modelcontextprotocol.io/docs/tutorials/security/security_best_practices)
+- [Claude Code：MCP 配置](https://docs.anthropic.com/en/docs/claude-code/mcp)
 - [FFmpeg `-progress` 官方文档](https://ffmpeg.org/ffmpeg.html)
 
-## 18. 交给 Cursor 的首轮指令
+## 20. 交给 Cursor 的首轮指令
 
 建议不要让 Cursor 一次执行整份方案。第一轮可以直接提供以下指令：
 
@@ -1019,7 +1456,7 @@ osx-arm64
 Clipify.Core 和 Clipify.Forms 中与 FFmpeg、依赖注入、视频裁剪、音频提取有关的代码。
 
 本轮只实施“阶段 0：建立安全基线”和“阶段 1：解决方案与 .NET 10 基础”。
-不要删除 MAUI，不要迁移 UI，不要实现 FFmpeg，不要引入 PhotinoX。
+不要删除 MAUI，不要迁移 UI，不要实现 FFmpeg/CLI/MCP，不要引入 PhotinoX。
 
 要求：
 1. 先报告当前工作树和构建基线。
