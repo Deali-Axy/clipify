@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Clipify.Mcp</RootNamespace>
+    <AssemblyName>clipify-mcp</AssemblyName>
+    <Description>Local MCP stdio server entry point.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Clipify.Hosting\Clipify.Hosting.csproj" />
+  </ItemGroup>
+
+</Project>

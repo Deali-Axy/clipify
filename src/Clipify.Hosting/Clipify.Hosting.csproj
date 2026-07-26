@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Clipify.Hosting</RootNamespace>
+    <Description>Shared Generic Host composition for Desktop, CLI, and MCP.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Clipify.Application\Clipify.Application.csproj" />
+    <ProjectReference Include="..\Clipify.FFmpeg\Clipify.FFmpeg.csproj" />
+    <ProjectReference Include="..\Clipify.Persistence\Clipify.Persistence.csproj" />
+  </ItemGroup>
+
+</Project>

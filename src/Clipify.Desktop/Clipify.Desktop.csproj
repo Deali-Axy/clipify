@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Clipify.Desktop</RootNamespace>
+    <Description>PhotinoX desktop host. PhotinoX types stay in this project only.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Clipify.Hosting\Clipify.Hosting.csproj" />
+    <ProjectReference Include="..\Clipify.UI\Clipify.UI.csproj" />
+  </ItemGroup>
+
+</Project>
