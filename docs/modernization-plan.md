@@ -795,6 +795,20 @@ Razor 组件不能：
 
 任务中心是任务状态的主要 UI。导出弹窗只能显示任务摘要，关闭弹窗不能取消任务。
 
+### 8.5 面向开发 Agent 的 Blueprint 文档能力
+
+Blazor Blueprint 官方提供开发期 MCP Server 和 LLM 纯文本索引。两者应在 UI 阶段开始前配置好，用来降低 Agent 猜错组件 API、事件名和样式约定的概率。
+
+- 首选 Blazor Blueprint MCP：提供组件搜索、完整组件文档、安装说明、Patterns、图标、Primitives、Blueprints、版本和 Changelog 查询。
+- MCP 启动时先调用 `get_version`，其文档主版本必须与 `Directory.Packages.props` 中的 `BlazorBlueprint.Components` 一致。
+- 写 Razor 前先用 `search_components`/`get_component` 查证；处理表单、主题和数据绑定时使用 `get_patterns`；升级前使用 `get_changelog`。
+- MCP 不可用时，从 `https://blazorblueprintui.com/llms/index.txt` 开始读取对应的纯文本文档。
+- 不把整套在线文档复制进仓库，也不把 Node.js、MCP Server 或文档缓存带入 Clipify 发布产物。
+
+仓库提供 Windows 与 macOS/Linux 两份配置模板及完整规则，见 `docs/agent/blazor-blueprint.md`。按开发机平台将模板复制到 Cursor 的 `.cursor/mcp.json` 或 Claude Code 的根目录 `.mcp.json`，避免提交只能在单一操作系统工作的活动配置。
+
+这里的 Blazor Blueprint MCP 是“帮助 Agent 开发 Clipify UI”的外部文档服务；第 11 节的 `clipify-mcp` 是“让 Agent 使用 Clipify 产品能力”的正式入口。两者名称相似，但生命周期、依赖和安全边界完全独立。
+
 ## 9. 桌面平台抽象
 
 在 Application 或专门的共享 Abstractions 中定义：
@@ -1367,6 +1381,7 @@ osx-arm64
 
 ### 阶段 8：Blazor Blueprint UI
 
+- 按 `docs/agent/blazor-blueprint.md` 配置开发期 MCP，并验证文档版本；
 - 创建 `Clipify.UI` RCL；
 - 配置 Blueprint Providers 和 Tailwind v4；
 - 实现布局、主题、文件选择、任务中心；
@@ -1428,6 +1443,8 @@ osx-arm64
 16. 每次新增 NuGet 包必须说明用途和替代方案。
 17. 每个里程碑结束必须运行 Build、Tests，并更新本文档中的实际偏差。
 18. 如果实现发现方案与平台现实冲突，先记录 ADR，不得静默改变架构。
+19. 修改 `Clipify.UI` 前阅读 `docs/agent/blazor-blueprint.md`，优先通过 Blueprint MCP 查证组件 API。
+20. Blueprint MCP 不可用时使用官方 `llms/index.txt` 回退；不得根据记忆编造组件参数或事件。
 
 建议 Cursor 每阶段输出：
 
@@ -1494,7 +1511,10 @@ osx-arm64
 - [PhotinoX.Blazor GitHub](https://github.com/ivanvoyager/PhotinoX.Blazor)
 - [Blazor Blueprint 安装文档](https://blazorblueprintui.com/docs/installation)
 - [Blazor Blueprint 组件列表](https://blazorblueprintui.com/components)
+- [Blazor Blueprint MCP Server](https://blazorblueprintui.com/docs/mcp)
+- [Blazor Blueprint LLM 文档索引](https://blazorblueprintui.com/llms/index.txt)
 - [BlazorBlueprint.Components NuGet](https://www.nuget.org/packages/BlazorBlueprint.Components)
+- [Cursor：MCP 项目配置](https://docs.cursor.com/context/model-context-protocol)
 - [.NET Hosted Services 与有界 Channel 队列](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services?view=aspnetcore-10.0)
 - [Microsoft：System.CommandLine](https://learn.microsoft.com/en-us/dotnet/standard/commandline/)
 - [EF Core：DbContext 生命周期与 IDbContextFactory](https://learn.microsoft.com/en-us/ef/core/dbcontext-configuration/)

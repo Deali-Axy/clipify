@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "blazorblueprint": {
+      "type": "stdio",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@blazorblueprint/mcp@latest"
+      ],
+      "env": {
+        "BLAZORBLUEPRINT_VERSION": "3"
+      }
+    }
+  }
+}
