@@ -1,7 +1,7 @@
 namespace Clipify.Persistence;
 
 /// <summary>
-/// Assembly marker for persistence. EF Core job store lands in phase 3.
+/// Assembly marker for the persistence layer.
 /// </summary>
 public static class PersistenceAssembly
 {
