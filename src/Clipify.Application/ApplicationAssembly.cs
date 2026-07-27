@@ -1,7 +1,7 @@
 namespace Clipify.Application;
 
 /// <summary>
-/// Assembly marker for the application layer. Use cases land in phase 3.
+/// Assembly marker for the application layer.
 /// </summary>
 public static class ApplicationAssembly
 {
