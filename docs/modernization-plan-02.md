@@ -62,4 +62,4 @@ git checkout archive/maui-final -- Clipify.Maui
 
 ## 下一轮
 
-阶段 3：Domain、Application 与任务系统。详见 [modernization-plan.md §15](./modernization-plan.md#阶段-3domainapplication-与任务系统)。
+阶段 3：Domain、Application 与任务系统。详见 [modernization-plan-03.md](./modernization-plan-03.md) 与 [modernization-plan.md §15](./modernization-plan.md#阶段-3domainapplication-与任务系统)。

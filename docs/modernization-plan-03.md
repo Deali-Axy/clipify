@@ -1,0 +1,98 @@
+# Clipify 现代化 · 第 3 轮（阶段 3：Domain、Application 与任务系统）
+
+> 状态：待实施（计划已编写）  
+> 日期：2026-07-27  
+> 完整方案：[modernization-plan.md](./modernization-plan.md)  
+> 范围：仅阶段 3（见完整方案 [§15 阶段 3](./modernization-plan.md#阶段-3domainapplication-与任务系统)、[§6 任务系统](./modernization-plan.md#6-异步媒体任务系统)）  
+> 前置：[modernization-plan-02.md](./modernization-plan-02.md) 已关闭  
+> 建议分支：`modernization/phase-3-job-system`
+
+## 本轮目标
+
+建立不依赖 FFmpeg 的可持久化异步任务内核，为后续 GUI、CLI、MCP 共用同一套任务生命周期打基础。
+
+本轮实现 Domain Job 模型、Application 用例、EF Core SQLite 持久化、最小 Hosting Worker 和对应自动化测试。
+
+## 不做
+
+- 不实现 FFmpeg/ffprobe；
+- 不迁移裁剪、音频提取或缩略图功能；
+- 不接入 PhotinoX、Blazor Blueprint、CLI 命令或 MCP SDK；
+- 不修改 Core / Forms / Conveter 的业务行为；
+- 不引入 Dapper、EF Core InMemory、Hangfire、Redis、Daemon 或通用 DAG。
+
+## 关键设计决定
+
+1. SQLite 是任务状态的唯一事实来源；Channel 只负责有界唤醒。
+2. Domain/Application 不引用 EF Core、SQLite、Hosting 或 UI。
+3. 状态转换集中在 Domain；终态不可原地返回 Queued/Running。
+4. 重试创建新 Job，并通过 `RetryOfJobId` 关联原任务。
+5. Definition 使用白名单 discriminator + JSON，不保存任意 CLR 类型名。
+6. Claim/Lease/Heartbeat 使用参数化原子 SQL，并校验 `LeaseOwner`。
+7. Migration Lock 与 Job Lock 分离；过期租约且 Job Lock 已释放才可修复为 Interrupted。
+8. 时间统一通过 `TimeProvider`；SQLite 可比较时间保存为 UTC Unix 毫秒。
+
+## 工作项
+
+| 工作项 | 结果 |
+|--------|------|
+| Domain | `MediaJobId`、Definition、Snapshot、Progress、Artifact、State 与转换规则 |
+| Application | `IMediaJobService`、Store/Queue/Handler 端口、取消、重试、历史、错误模型 |
+| Persistence | `ClipifyDbContext`、Entity Mapping、Initial Migration、`IDbContextFactory` |
+| 调度 | FIFO、并发限制、原子 Claim、Lease、Heartbeat、Busy 有界重试 |
+| 恢复 | Queued 重载、过期租约修复、Interrupted 不自动重跑 |
+| Hosting | 薄 `BackgroundService`，运行 Application 执行循环 |
+| 测试 | Fake Handler、两个测试 Host 竞争、重启和锁测试 |
+
+顺序为 Domain → Application → EF/Migration → Claim/Lease/Locks → Worker → 集成测试；每一步保持 build/test 通过。
+
+## NuGet 与工具
+
+版本统一写入 `Directory.Packages.props`：
+
+- `Microsoft.EntityFrameworkCore.Sqlite`；
+- `Microsoft.EntityFrameworkCore.Design`（`PrivateAssets=all`）；
+- 必要时直接引用 `Microsoft.Data.Sqlite`；
+- Hosting 所需的最小 Microsoft.Extensions 包。
+
+如使用 `dotnet-ef`，增加本地 tool manifest，并与 EF Core 10.x 版本保持一致。不得依赖未记录的全局工具。
+
+## 测试重点
+
+- Domain：状态转换、终态不可逆、时间范围、Progress 和 Retry 关联；
+- Application：先持久化再唤醒、取消、重试、Handler 异常隔离；
+- Persistence：Migration、映射、原子 Claim、Lease owner、Busy 重试；
+- 集成：两个 Host 不重复执行同一 Job，并发上限 1/2 可靠；
+- 恢复：Queued 不丢失，仍存活的其他 Host 任务不被误修复；
+- 锁：租约过期但锁仍持有时不修复，锁释放后进入 Interrupted。
+
+Persistence 测试使用真实 SQLite 临时文件；禁止用 EF Core InMemory 替代 SQLite 行为。
+
+## 验收
+
+- [ ] 不依赖 FFmpeg 即可验证完整任务生命周期；
+- [ ] Domain 状态机有合法/非法转换测试；
+- [ ] EF Core Initial Migration 已提交；
+- [ ] `IDbContextFactory` 使用短生命周期 Context；
+- [ ] 排队、查询、取消、重试、历史和 Artifact 查询通过；
+- [ ] Claim/Lease/Heartbeat 使用参数化原子 SQL；
+- [ ] 两个测试 Host 不会重复执行同一 Job；
+- [ ] FIFO 与并发限制可靠；
+- [ ] 应用重启后状态正确，Interrupted 不自动重跑；
+- [ ] `src/`、`tests/` 无 `async void`；
+- [ ] 完整解决方案 restore/build/test 通过；
+- [ ] Windows、macOS、Ubuntu CI 通过。
+
+## 验证命令
+
+```bash
+dotnet restore Clipify.sln
+dotnet build Clipify.sln -c Release --no-restore
+dotnet test Clipify.sln -c Release --no-build --no-restore
+```
+
+若并发、SQLite 或跨平台文件锁无法满足总方案语义，应停止相关实现并记录 ADR，不得静默引入计划外框架。
+
+## 下一轮
+
+阶段 4：FFmpeg 基础设施。使用本阶段稳定的 Handler/Job Contract 接入 locator、runner、progress parser、ffprobe 和真实媒体任务。
