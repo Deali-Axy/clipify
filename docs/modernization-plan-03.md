@@ -1,11 +1,11 @@
 # Clipify 现代化 · 第 3 轮（阶段 3：Domain、Application 与任务系统）
 
-> 状态：待实施（计划已编写）  
+> 状态：本地验收通过（待提交 / CI）  
 > 日期：2026-07-27  
 > 完整方案：[modernization-plan.md](./modernization-plan.md)  
 > 范围：仅阶段 3（见完整方案 [§15 阶段 3](./modernization-plan.md#阶段-3domainapplication-与任务系统)、[§6 任务系统](./modernization-plan.md#6-异步媒体任务系统)）  
 > 前置：[modernization-plan-02.md](./modernization-plan-02.md) 已关闭  
-> 建议分支：`modernization/phase-3-job-system`
+> 分支：`modernization/phase-3-job-system`
 
 ## 本轮目标
 
@@ -32,6 +32,12 @@
 7. Migration Lock 与 Job Lock 分离；过期租约且 Job Lock 已释放才可修复为 Interrupted。
 8. 时间统一通过 `TimeProvider`；SQLite 可比较时间保存为 UTC Unix 毫秒。
 
+### 本轮补充决定
+
+- 阶段 3 仅注册白名单 Definition `fake_delay` 与对应 Fake Handler，真实媒体 Definition 留待阶段 4。
+- 为规避 `Microsoft.Data.Sqlite` 10.0.10 传递依赖 `SQLitePCLRaw.lib.e_sqlite3` 的 NU1903（GHSA-2m69-gcr7-jv3q），直接固定 `SQLitePCLRaw.bundle_e_sqlite3` 3.0.5。
+- `dotnet-ef` 通过仓库本地 tool manifest（`.config/dotnet-tools.json`，10.0.10）管理，不依赖未记录的全局工具。
+
 ## 工作项
 
 | 工作项 | 结果 |
@@ -53,7 +59,8 @@
 - `Microsoft.EntityFrameworkCore.Sqlite`；
 - `Microsoft.EntityFrameworkCore.Design`（`PrivateAssets=all`）；
 - 必要时直接引用 `Microsoft.Data.Sqlite`；
-- Hosting 所需的最小 Microsoft.Extensions 包。
+- Hosting 所需的最小 Microsoft.Extensions 包；
+- `SQLitePCLRaw.bundle_e_sqlite3` 3.0.5（覆盖传递脆弱依赖）。
 
 如使用 `dotnet-ef`，增加本地 tool manifest，并与 EF Core 10.x 版本保持一致。不得依赖未记录的全局工具。
 
@@ -70,18 +77,18 @@ Persistence 测试使用真实 SQLite 临时文件；禁止用 EF Core InMemory 
 
 ## 验收
 
-- [ ] 不依赖 FFmpeg 即可验证完整任务生命周期；
-- [ ] Domain 状态机有合法/非法转换测试；
-- [ ] EF Core Initial Migration 已提交；
-- [ ] `IDbContextFactory` 使用短生命周期 Context；
-- [ ] 排队、查询、取消、重试、历史和 Artifact 查询通过；
-- [ ] Claim/Lease/Heartbeat 使用参数化原子 SQL；
-- [ ] 两个测试 Host 不会重复执行同一 Job；
-- [ ] FIFO 与并发限制可靠；
-- [ ] 应用重启后状态正确，Interrupted 不自动重跑；
-- [ ] `src/`、`tests/` 无 `async void`；
-- [ ] 完整解决方案 restore/build/test 通过；
-- [ ] Windows、macOS、Ubuntu CI 通过。
+- [x] 不依赖 FFmpeg 即可验证完整任务生命周期；
+- [x] Domain 状态机有合法/非法转换测试；
+- [x] EF Core Initial Migration 已提交；（代码已生成，待随本分支提交）
+- [x] `IDbContextFactory` 使用短生命周期 Context；
+- [x] 排队、查询、取消、重试、历史和 Artifact 查询通过；
+- [x] Claim/Lease/Heartbeat 使用参数化原子 SQL；
+- [x] 两个测试 Host 不会重复执行同一 Job；
+- [x] FIFO 与并发限制可靠；
+- [x] 应用重启后状态正确，Interrupted 不自动重跑；
+- [x] `src/`、`tests/` 无 `async void`；
+- [x] 完整解决方案 restore/build/test 通过；
+- [ ] Windows、macOS、Ubuntu CI 通过。（待推送后验证）
 
 ## 验证命令
 
@@ -91,7 +98,17 @@ dotnet build Clipify.sln -c Release --no-restore
 dotnet test Clipify.sln -c Release --no-build --no-restore
 ```
 
+本地结果（2026-07-27）：Release build 成功（Forms 既有 MSB3277 警告）；测试 **61** 通过（Domain 41 / Application 6 / Persistence 10 / 其余骨架 4）。
+
 若并发、SQLite 或跨平台文件锁无法满足总方案语义，应停止相关实现并记录 ADR，不得静默引入计划外框架。
+
+## 本轮结果摘要
+
+- Domain：Job 状态机、Definition 白名单序列化、Progress/Artifact/TimeRange
+- Application：`MediaJobService` / `MediaJobExecutor` / Fake Handler / Channel 唤醒
+- Persistence：EF Core SQLite、`InitialCreate` Migration、`EfMediaJobStore` 原子 Claim、File Job/Migration Lock、Busy 退避
+- Hosting：`MediaJobWorker` + `AddClipifyMediaJobs`
+- 测试覆盖双 Host、并发 2、重启恢复与锁语义
 
 ## 下一轮
 
