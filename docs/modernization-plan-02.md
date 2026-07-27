@@ -1,6 +1,6 @@
 # Clipify 现代化 · 第 2 轮（阶段 2：删除 MAUI）
 
-> 状态：本地交付完成（待提交）  
+> 状态：已关闭（本地验收通过；提交 `aff4f48` / `cee72cf`）  
 > 日期：2026-07-27  
 > 完整方案：[modernization-plan.md](./modernization-plan.md)  
 > 范围：仅阶段 2（见完整方案 [§15 阶段 2](./modernization-plan.md#阶段-2删除-maui)、[§2.6](./modernization-plan.md#26-删除-maui)）  
