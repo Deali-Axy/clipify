@@ -60,7 +60,8 @@ public sealed class CliCommandContext : IAsyncDisposable
     private ClipifyHostOptions CreateHostOptions() => new()
     {
         DataDirectory = DataDirectory ?? Runtime.DataDirectory,
-        SuppressConsoleLogging = OutputMode is OutputMode.Json or OutputMode.Jsonl,
+        // CLI owns stdout via Renderer; never let Host/EF console logs pollute it.
+        SuppressConsoleLogging = true,
         EnableFileLogging = Runtime.EnableFileLogging,
         PollInterval = Runtime.PollInterval ?? TimeSpan.FromSeconds(2),
         ConfigureFFmpeg = Runtime.ConfigureFFmpeg,

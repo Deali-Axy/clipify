@@ -87,6 +87,13 @@ public class CliParserTests
         Assert.False(CliParsers.TryParseConflictPolicy("obliterate", out _, out var error));
         Assert.Equal(ClipifyErrorCode.Validation, error!.Code);
     }
+
+    [Fact]
+    public void Rejects_time_milliseconds_that_overflow_timespan()
+    {
+        Assert.False(CliParsers.TryParseTime(long.MaxValue.ToString(), out _, out var error));
+        Assert.Equal(ClipifyErrorCode.Validation, error!.Code);
+    }
 }
 
 public class HelpAndValidationTests
@@ -156,6 +163,26 @@ public class HelpAndValidationTests
     }
 
     [Fact]
+    public async Task Overflow_time_maps_to_validation_json()
+    {
+        using var data = new TempDataDirectory();
+        using var writers = new CapturingWriters();
+        var code = await CliTestHost.RunAsync(
+            [
+                "trim", "in.mp4",
+                "--start", long.MaxValue.ToString(),
+                "--end", "1000",
+                "--output", "out.mp4",
+                "--json",
+            ],
+            data,
+            writers);
+        Assert.Equal(CliExitCode.ValidationError, code);
+        using var doc = JsonDocument.Parse(writers.StdOut.Trim());
+        Assert.Equal("Validation", doc.RootElement.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task Jobs_wait_missing_job_returns_not_found_json()
     {
         using var data = new TempDataDirectory();
@@ -218,6 +245,20 @@ public class OutputModeTests
         var code = await CliTestHost.RunAsync(["doctor", "--json", "--jsonl"], data, writers);
         Assert.Equal(CliExitCode.ValidationError, code);
     }
+
+    [Fact]
+    public async Task Text_mode_stdout_is_not_polluted_by_host_logs()
+    {
+        using var data = new TempDataDirectory();
+        using var writers = new CapturingWriters();
+        var missing = Path.Combine(data.Path, "missing.mp4");
+        var code = await CliTestHost.RunAsync(["probe", missing], data, writers);
+        Assert.Equal(CliExitCode.FileError, code);
+        Assert.DoesNotContain("MediaJobWorker", writers.StdOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("Entity Framework", writers.StdOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("info:", writers.StdOut, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("dbug:", writers.StdOut, StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 public class DoctorCommandTests
@@ -248,15 +289,37 @@ public class DoctorCommandTests
 
         using var writers = new CapturingWriters();
         var code = await CliTestHost.RunAsync(["doctor", "--json", "--data-dir", data.Path], data, writers);
-        Assert.NotEqual(CliExitCode.Success, code);
+        Assert.Equal(CliExitCode.InternalError, code);
 
         var stdout = writers.StdOut.Trim();
         Assert.False(string.IsNullOrWhiteSpace(stdout), $"stdout empty; stderr={writers.StdErr}");
         using var doc = JsonDocument.Parse(stdout);
         Assert.False(doc.RootElement.GetProperty("ok").GetBoolean());
+        Assert.Equal("Internal", doc.RootElement.GetProperty("error").GetProperty("code").GetString());
         var sqlite = doc.RootElement.GetProperty("doctor").GetProperty("checks").EnumerateArray()
             .Single(c => c.GetProperty("name").GetString() == "sqlite");
         Assert.False(sqlite.GetProperty("ok").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Doctor_reports_data_directory_failure_when_path_is_a_file()
+    {
+        using var data = new TempDataDirectory();
+        var filePath = Path.Combine(data.Path, "not-a-directory");
+        await File.WriteAllTextAsync(filePath, "blocking file");
+
+        using var writers = new CapturingWriters();
+        var code = await CliTestHost.RunAsync(["doctor", "--json", "--data-dir", filePath], data, writers);
+        Assert.Equal(CliExitCode.InternalError, code);
+
+        var stdout = writers.StdOut.Trim();
+        Assert.False(string.IsNullOrWhiteSpace(stdout), $"stdout empty; stderr={writers.StdErr}");
+        using var doc = JsonDocument.Parse(stdout);
+        Assert.False(doc.RootElement.GetProperty("ok").GetBoolean());
+        Assert.Equal("Internal", doc.RootElement.GetProperty("error").GetProperty("code").GetString());
+        var dataDir = doc.RootElement.GetProperty("doctor").GetProperty("checks").EnumerateArray()
+            .Single(c => c.GetProperty("name").GetString() == "data_directory");
+        Assert.False(dataDir.GetProperty("ok").GetBoolean());
     }
 }
 
@@ -381,7 +444,7 @@ public class JobsCommandTests
     {
         using var data = new TempDataDirectory();
 
-        // Seed a Queued job without starting any Worker so two CLI processes race to Claim.
+        // Seed a Queued job without starting any Worker so two in-process CLI hosts race to Claim.
         var seedOptions = new ClipifyHostOptions
         {
             DataDirectory = data.Path,
@@ -420,6 +483,56 @@ public class JobsCommandTests
             Assert.Single(snapshot.Artifacts);
             Assert.Equal("fake_output", snapshot.Artifacts[0].Kind);
         }
+    }
+
+    [Fact]
+    public async Task Two_clipify_processes_claim_preseeded_job_only_once()
+    {
+        using var data = new TempDataDirectory();
+        MediaJobId jobId;
+
+        var seedOptions = new ClipifyHostOptions
+        {
+            DataDirectory = data.Path,
+            SuppressConsoleLogging = true,
+            EnableFileLogging = false,
+        };
+        using (var seedHost = ClipifyHostFactory.BuildForDiagnostics(seedOptions))
+        {
+            await seedHost.Services.MigrateClipifyDatabaseAsync();
+            var jobs = seedHost.Services.GetRequiredService<IMediaJobService>();
+            jobId = await jobs.EnqueueAsync(new FakeDelayJobDefinition
+            {
+                Delay = TimeSpan.FromMilliseconds(800),
+                Label = "process-claim-race",
+            });
+        }
+
+        var args = new[] { "jobs", "wait", jobId.Value, "--json", "--data-dir", data.Path };
+        var runA = CliTestHost.RunProcessAsync(args, TimeSpan.FromSeconds(45));
+        var runB = CliTestHost.RunProcessAsync(args, TimeSpan.FromSeconds(45));
+        var results = await Task.WhenAll(runA, runB);
+
+        Assert.True(
+            results[0].ExitCode == CliExitCode.Success,
+            $"process A failed: exit={results[0].ExitCode} stdout={results[0].StdOut} stderr={results[0].StdErr}");
+        Assert.True(
+            results[1].ExitCode == CliExitCode.Success,
+            $"process B failed: exit={results[1].ExitCode} stdout={results[1].StdOut} stderr={results[1].StdErr}");
+
+        using var docA = JsonDocument.Parse(results[0].StdOut.Trim());
+        using var docB = JsonDocument.Parse(results[1].StdOut.Trim());
+        Assert.Equal("succeeded", docA.RootElement.GetProperty("job").GetProperty("state").GetString());
+        Assert.Equal("succeeded", docB.RootElement.GetProperty("job").GetProperty("state").GetString());
+
+        // Re-open store to assert a single artifact side effect.
+        using var verifyHost = ClipifyHostFactory.BuildForDiagnostics(seedOptions);
+        await verifyHost.Services.MigrateClipifyDatabaseAsync();
+        var snapshot = await verifyHost.Services.GetRequiredService<IMediaJobService>().GetAsync(jobId);
+        Assert.NotNull(snapshot);
+        Assert.Equal(MediaJobState.Succeeded, snapshot!.State);
+        Assert.Single(snapshot.Artifacts);
+        Assert.Equal("fake_output", snapshot.Artifacts[0].Kind);
     }
 }
 

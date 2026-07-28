@@ -28,7 +28,18 @@ public static class CliParsers
                 return false;
             }
 
-            value = TimeSpan.FromMilliseconds(ms);
+            try
+            {
+                value = TimeSpan.FromMilliseconds(ms);
+            }
+            catch (Exception ex) when (ex is OverflowException or ArgumentOutOfRangeException)
+            {
+                error = ClipifyError.Validation(
+                    "Time is out of range for TimeSpan. Use a smaller millisecond value or HH:MM:SS[.fff].",
+                    text);
+                return false;
+            }
+
             return true;
         }
 
@@ -198,6 +209,10 @@ public static class CliParsers
             return false;
         }
         catch (OverflowException)
+        {
+            return false;
+        }
+        catch (ArgumentOutOfRangeException)
         {
             return false;
         }

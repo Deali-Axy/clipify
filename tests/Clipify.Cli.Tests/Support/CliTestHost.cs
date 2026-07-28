@@ -125,6 +125,52 @@ public static class CliTestHost
         return await CliApp.RunAsync(args, CreateRuntime(data, writers), cancellationToken);
     }
 
+    public static string ClipifyAssemblyPath => typeof(CliApp).Assembly.Location;
+
+    public static async Task<(int ExitCode, string StdOut, string StdErr)> RunProcessAsync(
+        string[] args,
+        TimeSpan? timeout = null)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        psi.ArgumentList.Add(ClipifyAssemblyPath);
+        foreach (var arg in args)
+        {
+            psi.ArgumentList.Add(arg);
+        }
+
+        using var process = Process.Start(psi)
+            ?? throw new InvalidOperationException("Failed to start clipify process.");
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        using var cts = new CancellationTokenSource(timeout ?? TimeSpan.FromSeconds(60));
+        try
+        {
+            await process.WaitForExitAsync(cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            try
+            {
+                process.Kill(entireProcessTree: true);
+            }
+            catch
+            {
+                // ignore
+            }
+
+            throw new TimeoutException($"clipify process timed out. args={string.Join(' ', args)}");
+        }
+
+        return (process.ExitCode, await stdoutTask, await stderrTask);
+    }
+
     private static async Task GenerateSourceAsync(string path)
     {
         var args = new[]

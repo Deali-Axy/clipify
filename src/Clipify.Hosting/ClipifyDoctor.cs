@@ -44,24 +44,90 @@ public sealed class ClipifyDoctor : IClipifyDoctor
         checks.Add(await CheckFFprobeAsync(cancellationToken).ConfigureAwait(false));
         checks.Add(await CheckSqliteAsync(cancellationToken).ConfigureAwait(false));
 
-        var platform = new ClipifyDoctorPlatform(
+        return CreateReport(_paths, checks);
+    }
+
+    /// <summary>
+    /// Validates that <paramref name="paths"/>.Root can be used as an application data directory
+    /// before Host/DI construction. Returns false when the root is a file or cannot be created.
+    /// </summary>
+    public static bool TryPrepareDataRoot(ClipifyAppPaths paths, out ClipifyDoctorCheck dataDirectoryCheck)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+
+        try
+        {
+            if (File.Exists(paths.Root) && !Directory.Exists(paths.Root))
+            {
+                dataDirectoryCheck = new ClipifyDoctorCheck(
+                    "data_directory",
+                    false,
+                    $"Path is a file, not a directory: {paths.Root}",
+                    paths.Root);
+                return false;
+            }
+
+            paths.EnsureCreated();
+            var writable = IsDirectoryWritable(paths.Root);
+            dataDirectoryCheck = new ClipifyDoctorCheck(
+                "data_directory",
+                writable,
+                writable ? $"Directory ready: {paths.Root}" : $"Directory not writable: {paths.Root}",
+                paths.Root);
+            return writable;
+        }
+        catch (Exception ex)
+        {
+            dataDirectoryCheck = new ClipifyDoctorCheck(
+                "data_directory",
+                false,
+                $"Directory check failed: {ex.Message}",
+                paths.Root);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Builds a doctor report when Host bootstrap cannot run (invalid data root).
+    /// </summary>
+    public static ClipifyDoctorReport CreateBootstrapFailureReport(
+        ClipifyAppPaths paths,
+        ClipifyDoctorCheck dataDirectoryCheck)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        ArgumentNullException.ThrowIfNull(dataDirectoryCheck);
+
+        var checks = new List<ClipifyDoctorCheck>
+        {
+            dataDirectoryCheck,
+            new("lock_directory", false, "Skipped: data directory is not usable.", paths.LockDirectory),
+            new("log_directory", false, "Skipped: data directory is not usable.", paths.LogDirectory),
+            new("ffmpeg", false, "Skipped: data directory is not usable.", null),
+            new("ffprobe", false, "Skipped: data directory is not usable.", null),
+            new("sqlite", false, "Skipped: data directory is not usable.", paths.DatabasePath),
+        };
+
+        return CreateReport(paths, checks);
+    }
+
+    public static ClipifyDoctorPlatform CreatePlatformInfo() =>
+        new(
             Os: GetOsName(),
             Architecture: RuntimeInformation.OSArchitecture.ToString(),
             FrameworkDescription: RuntimeInformation.FrameworkDescription,
             ProcessArchitecture: RuntimeInformation.ProcessArchitecture.ToString(),
             RuntimeIdentifier: RuntimeInformation.RuntimeIdentifier);
 
-        var ok = checks.TrueForAll(c => c.Ok);
-        return new ClipifyDoctorReport(
-            Ok: ok,
+    private static ClipifyDoctorReport CreateReport(ClipifyAppPaths paths, IReadOnlyList<ClipifyDoctorCheck> checks) =>
+        new(
+            Ok: checks.All(c => c.Ok),
             Paths: new ClipifyDoctorPaths(
-                Root: _paths.Root,
-                DatabasePath: _paths.DatabasePath,
-                LockDirectory: _paths.LockDirectory,
-                LogDirectory: _paths.LogDirectory),
-            Platform: platform,
+                Root: paths.Root,
+                DatabasePath: paths.DatabasePath,
+                LockDirectory: paths.LockDirectory,
+                LogDirectory: paths.LogDirectory),
+            Platform: CreatePlatformInfo(),
             Checks: checks);
-    }
 
     private static ClipifyDoctorCheck CheckDirectory(string name, string path)
     {

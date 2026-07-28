@@ -10,12 +10,15 @@ namespace Clipify.Hosting;
 /// </summary>
 public static class ClipifyHostFactory
 {
-    public static IHostBuilder CreateBuilder(ClipifyHostOptions options)
+    public static IHostBuilder CreateBuilder(ClipifyHostOptions options, bool ensureDirectories = true)
     {
         ArgumentNullException.ThrowIfNull(options);
 
         var paths = options.ResolvePaths();
-        paths.EnsureCreated();
+        if (ensureDirectories)
+        {
+            paths.EnsureCreated();
+        }
 
         var hostingOptions = new MediaJobHostingOptions
         {
@@ -39,12 +42,6 @@ public static class ClipifyHostFactory
                 }
 
                 logging.SetMinimumLevel(LogLevel.Information);
-
-                if (options.EnableFileLogging)
-                {
-                    // Simple file logger via provider registration below after services exist.
-                    // Actual provider is added in ConfigureServices once paths are known.
-                }
             })
             .ConfigureServices(services =>
             {
@@ -87,10 +84,11 @@ public static class ClipifyHostFactory
     }
 
     /// <summary>
-    /// Builds DI without migrating or starting the Worker. Used by <c>doctor</c> so SQLite
-    /// failures surface as diagnostic checks instead of aborting the command.
+    /// Builds DI without migrating or starting the Worker. Does not create directories — callers
+    /// (doctor) must validate/prepare the data root first so path failures can be reported.
     /// </summary>
-    public static IHost BuildForDiagnostics(ClipifyHostOptions options) => Build(options);
+    public static IHost BuildForDiagnostics(ClipifyHostOptions options) =>
+        CreateBuilder(options, ensureDirectories: false).Build();
 }
 
 /// <summary>

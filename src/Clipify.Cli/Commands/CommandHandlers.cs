@@ -14,26 +14,59 @@ internal static class CommandHandlers
 {
     public static async Task<int> DoctorAsync(CliCommandContext ctx, CancellationToken ct)
     {
+        var paths = ClipifyAppPaths.Create(ctx.DataDirectory ?? ctx.Runtime.DataDirectory);
+        if (!ClipifyDoctor.TryPrepareDataRoot(paths, out var dataDirectoryCheck))
+        {
+            var bootstrap = ClipifyDoctor.CreateBootstrapFailureReport(paths, dataDirectoryCheck);
+            return WriteDoctorResult(ctx, bootstrap);
+        }
+
         ctx.EnsureDiagnosticsHost();
         var doctor = ctx.Services.GetRequiredService<IClipifyDoctor>();
         var report = await doctor.RunAsync(ct).ConfigureAwait(false);
-        var dto = CliDtoMapper.FromDoctor(report);
+        return WriteDoctorResult(ctx, report);
+    }
+
+    private static int WriteDoctorResult(CliCommandContext ctx, ClipifyDoctorReport report)
+    {
+        var (errorCode, exitCode) = MapDoctorFailure(report);
         ctx.Renderer.WriteResult(new CliCommandResultDto(
             Ok: report.Ok,
             Command: "doctor",
-            Doctor: dto,
+            Doctor: CliDtoMapper.FromDoctor(report),
             Error: report.Ok
                 ? null
-                : new CliErrorDto("ToolUnavailable", "One or more doctor checks failed.")));
+                : new CliErrorDto(errorCode, "One or more doctor checks failed.")));
+        return exitCode;
+    }
 
-        if (!report.Ok)
+    private static (string ErrorCode, int ExitCode) MapDoctorFailure(ClipifyDoctorReport report)
+    {
+        if (report.Ok)
         {
-            var ffmpegFailed = report.Checks.Any(c =>
-                (c.Name is "ffmpeg" or "ffprobe") && !c.Ok);
-            return ffmpegFailed ? CliExitCode.ToolUnavailable : CliExitCode.InternalError;
+            return ("", CliExitCode.Success);
         }
 
-        return CliExitCode.Success;
+        var failed = report.Checks.Where(c => !c.Ok).Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
+        var pathOrStoreFailed =
+            failed.Contains("data_directory")
+            || failed.Contains("lock_directory")
+            || failed.Contains("log_directory")
+            || failed.Contains("sqlite");
+        var toolFailed = failed.Contains("ffmpeg") || failed.Contains("ffprobe");
+
+        // Prefer path/store failures over skipped-tool placeholders from bootstrap reports.
+        if (pathOrStoreFailed)
+        {
+            return (nameof(ClipifyErrorCode.Internal), CliExitCode.InternalError);
+        }
+
+        if (toolFailed)
+        {
+            return (nameof(ClipifyErrorCode.FfmpegUnavailable), CliExitCode.ToolUnavailable);
+        }
+
+        return (nameof(ClipifyErrorCode.Internal), CliExitCode.InternalError);
     }
 
     public static async Task<int> ProbeAsync(CliCommandContext ctx, string input, CancellationToken ct)
