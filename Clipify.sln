@@ -48,6 +48,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Clipify.Mcp.Tests", "tests\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Clipify.UI.Tests", "tests\Clipify.UI.Tests\Clipify.UI.Tests.csproj", "{7C7DAE55-E5A8-49F3-B486-8ED921A0D6F2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Clipify.FFmpeg.ProcessHost", "tests\Clipify.FFmpeg.ProcessHost\Clipify.FFmpeg.ProcessHost.csproj", "{C6D6CD58-1D4A-4C2B-BE68-28E0FF7D64D1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -286,6 +288,18 @@ Global
 		{7C7DAE55-E5A8-49F3-B486-8ED921A0D6F2}.Release|x64.Build.0 = Release|Any CPU
 		{7C7DAE55-E5A8-49F3-B486-8ED921A0D6F2}.Release|x86.ActiveCfg = Release|Any CPU
 		{7C7DAE55-E5A8-49F3-B486-8ED921A0D6F2}.Release|x86.Build.0 = Release|Any CPU
+		{C6D6CD58-1D4A-4C2B-BE68-28E0FF7D64D1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C6D6CD58-1D4A-4C2B-BE68-28E0FF7D64D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C6D6CD58-1D4A-4C2B-BE68-28E0FF7D64D1}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C6D6CD58-1D4A-4C2B-BE68-28E0FF7D64D1}.Debug|x64.Build.0 = Debug|Any CPU
+		{C6D6CD58-1D4A-4C2B-BE68-28E0FF7D64D1}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C6D6CD58-1D4A-4C2B-BE68-28E0FF7D64D1}.Debug|x86.Build.0 = Debug|Any CPU
+		{C6D6CD58-1D4A-4C2B-BE68-28E0FF7D64D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C6D6CD58-1D4A-4C2B-BE68-28E0FF7D64D1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C6D6CD58-1D4A-4C2B-BE68-28E0FF7D64D1}.Release|x64.ActiveCfg = Release|Any CPU
+		{C6D6CD58-1D4A-4C2B-BE68-28E0FF7D64D1}.Release|x64.Build.0 = Release|Any CPU
+		{C6D6CD58-1D4A-4C2B-BE68-28E0FF7D64D1}.Release|x86.ActiveCfg = Release|Any CPU
+		{C6D6CD58-1D4A-4C2B-BE68-28E0FF7D64D1}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -307,5 +321,6 @@ Global
 		{C5A33175-4D6F-4475-9911-F76C2F28A297} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{3CE6634E-2909-4C81-86A6-536E68329CFA} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{7C7DAE55-E5A8-49F3-B486-8ED921A0D6F2} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{C6D6CD58-1D4A-4C2B-BE68-28E0FF7D64D1} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal

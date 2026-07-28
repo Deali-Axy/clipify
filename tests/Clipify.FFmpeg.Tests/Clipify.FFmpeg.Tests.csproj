@@ -20,6 +20,21 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Clipify.FFmpeg\Clipify.FFmpeg.csproj" />
+    <ProjectReference Include="..\Clipify.FFmpeg.ProcessHost\Clipify.FFmpeg.ProcessHost.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <OutputItemType>Content</OutputItemType>
+      <!-- Ensure ProcessHost builds before tests and lands next to the test assembly. -->
+    </ProjectReference>
   </ItemGroup>
+
+  <Target Name="CopyProcessHost" AfterTargets="Build">
+    <PropertyGroup>
+      <_ProcessHostDir>$(MSBuildThisFileDirectory)..\Clipify.FFmpeg.ProcessHost\bin\$(Configuration)\net10.0\</_ProcessHostDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_ProcessHostFiles Include="$(_ProcessHostDir)**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_ProcessHostFiles)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>
