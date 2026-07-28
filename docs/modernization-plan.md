@@ -63,7 +63,7 @@ Clipify 继续以 Blazor Hybrid 作为核心技术特色。Razor 组件直接运
 
 仓库增加：
 
-- `global.json`
+- `global.json`（最低 SDK 版本 + `rollForward: latestFeature`，跟随 .NET 10 feature band，不是精确到 patch 的死锁）
 - `Directory.Build.props`
 - `Directory.Packages.props`
 
@@ -96,6 +96,8 @@ Clipify 继续以 Blazor Hybrid 作为核心技术特色。Razor 组件直接运
 ```text
 archive/maui-final
 ```
+
+**重要：** 该 Tag 必须指向仍可与当时 MAUI 工程一起还原的提交（推荐直接指向 `baseline/pre-rewrite`，即 Core 仍为 net8 的基线）。不要把 Tag 打在 Core 已升到 net10 之后的提交上——那会使归档树中的 `Clipify.Maui`（net8 TFM + 引用 net10 Core）本身不可构建。归档含义是“源码纪念 / 历史可检出”，不是保证在当前 SDK 上继续作为活动目标构建。
 
 之后从仓库主分支和解决方案删除 `Clipify.Maui`。历史代码仍可通过 Git 访问，无需在仓库中保留一份长期失效的 `legacy` 副本。
 
@@ -1251,6 +1253,13 @@ osx-arm64
 
 ## 15. 分阶段实施计划
 
+### 分支约定（2026-07-28 起）
+
+- 集成分支：`modernization/trunk`（由原 `modernization/phase-0-1` 重命名；承载已验收的阶段成果）。
+- 阶段工作分支：从 trunk 派生，例如 `modernization/phase-4-ffmpeg` ← `modernization/trunk`。
+- 阶段 PR：先合入 `modernization/trunk`；再定期将 trunk 合入 `master`。
+- 历史阶段文档中出现的 `modernization/phase-0-1` 指重命名前的集成分支，不必回改提交历史。
+
 ### 阶段 0：建立安全基线
 
 - 确认工作树；
@@ -1282,8 +1291,8 @@ osx-arm64
 
 ### 阶段 2：删除 MAUI
 
-- 创建 MAUI 归档 Tag；
-- 从解决方案删除 MAUI；
+- 创建 MAUI 归档 Tag（指向 `baseline/pre-rewrite`，见 §2.6）；
+- 从解决方案删除 MAUI（若阶段 1 已移出，则确认仍不在活动 `.sln` 中）；
 - 删除 `Clipify.Maui`；
 - 清理只服务于 MAUI 的依赖和文档。
 

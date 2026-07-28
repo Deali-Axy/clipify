@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
-        <TargetFramework>net8.0-windows</TargetFramework>
+        <TargetFramework>net10.0-windows</TargetFramework>
         <Nullable>enable</Nullable>
         <UseWindowsForms>true</UseWindowsForms>
         <ImplicitUsings>enable</ImplicitUsings>
@@ -10,12 +10,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="AntDesign" Version="0.20.4.2" />
-      <PackageReference Include="MediatR" Version="12.4.1" />
-      <PackageReference Include="Microsoft.AspNetCore.Components.WebView.WindowsForms" Version="8.0.91" />
-      <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
-      <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0" />
-      <PackageReference Include="xFFmpeg.NET" Version="7.2.0" />
+      <PackageReference Include="AntDesign" />
+      <PackageReference Include="MediatR" />
+      <PackageReference Include="Microsoft.AspNetCore.Components.WebView.WindowsForms" />
+      <PackageReference Include="Microsoft.Extensions.Logging" />
+      <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
+      <PackageReference Include="xFFmpeg.NET" />
     </ItemGroup>
 
     <ItemGroup>

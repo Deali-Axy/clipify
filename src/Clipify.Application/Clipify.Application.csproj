@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Clipify.Application</RootNamespace>
+    <Description>Use cases, ports, and media job orchestration.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Clipify.Domain\Clipify.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

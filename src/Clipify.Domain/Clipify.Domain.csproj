@@ -1,0 +1,9 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Clipify.Domain</RootNamespace>
+    <Description>Clipify domain model. No UI, FFmpeg, or persistence dependencies.</Description>
+  </PropertyGroup>
+
+</Project>
