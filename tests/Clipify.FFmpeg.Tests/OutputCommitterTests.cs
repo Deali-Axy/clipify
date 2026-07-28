@@ -89,6 +89,13 @@ public class OutputCommitterTests
     [Fact]
     public async Task Overwrite_replace_failure_keeps_original_when_destination_locked()
     {
+        // FileShare.None is mandatory on Windows; POSIX locks are advisory and do not block
+        // File.Replace/rename, so this recovery path cannot be exercised there.
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         using var dir = new TempDir();
         var finalPath = Path.Combine(dir.Path, "out.mp4");
         var tempPath = Path.Combine(dir.Path, ".out.clipify-job.partial.mp4");

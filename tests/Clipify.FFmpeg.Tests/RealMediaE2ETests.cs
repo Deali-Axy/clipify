@@ -151,7 +151,8 @@ public class RealMediaE2ETests : IAsyncLifetime
         await InitializeAsync();
         using var workspace = new TempWorkspace();
         var longSource = Path.Combine(workspace.Path, "long.mp4");
-        await GenerateSourceAsync(longSource, durationSeconds: 8);
+        // Long enough that cancel has a reliable observation window on fast CI runners.
+        await GenerateSourceAsync(longSource, durationSeconds: 20);
 
         using var host = await StartHostAsync(workspace);
         var jobs = host.Services.GetRequiredService<IMediaJobService>();
@@ -171,13 +172,24 @@ public class RealMediaE2ETests : IAsyncLifetime
         await WaitForAsync(async () =>
         {
             var snap = await jobs.GetAsync(jobId);
+            if (snap?.State is MediaJobState.Failed)
+            {
+                throw new InvalidOperationException($"Job failed before cancel: {snap.ErrorCode} {snap.ErrorMessage}");
+            }
+
+            if (snap?.State is MediaJobState.Succeeded or MediaJobState.Canceled)
+            {
+                throw new InvalidOperationException(
+                    $"Job reached {snap.State} before cancel window; ffmpeg pids={string.Join(',', SnapshotFfmpegPids())}");
+            }
+
             if (snap?.State is not (MediaJobState.Running or MediaJobState.Canceling))
             {
                 return false;
             }
 
             return SnapshotFfmpegPids().Except(baselinePids).Any();
-        }, TimeSpan.FromSeconds(15));
+        }, TimeSpan.FromSeconds(30));
 
         var startedPids = SnapshotFfmpegPids().Except(baselinePids).ToArray();
         Assert.NotEmpty(startedPids);
@@ -188,7 +200,7 @@ public class RealMediaE2ETests : IAsyncLifetime
         {
             var snap = await jobs.GetAsync(jobId);
             return snap?.State == MediaJobState.Canceled;
-        }, TimeSpan.FromSeconds(15));
+        }, TimeSpan.FromSeconds(30));
 
         Assert.False(File.Exists(output));
         Assert.Empty(Directory.GetFiles(workspace.Path, "*.partial*", SearchOption.AllDirectories));
@@ -203,6 +215,13 @@ public class RealMediaE2ETests : IAsyncLifetime
 
     private static HashSet<int> SnapshotFfmpegPids()
     {
+        // Prefer pgrep on Unix: Process.GetProcesses()+ProcessName is slow/unreliable on macOS CI
+        // and can miss the entire FFmpeg lifetime of a short job.
+        if (!OperatingSystem.IsWindows())
+        {
+            return SnapshotFfmpegPidsUnix();
+        }
+
         var set = new HashSet<int>();
         foreach (var process in Process.GetProcesses())
         {
@@ -216,6 +235,67 @@ public class RealMediaE2ETests : IAsyncLifetime
             catch
             {
                 // ignore access races
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+
+        return set;
+    }
+
+    private static HashSet<int> SnapshotFfmpegPidsUnix()
+    {
+        var set = new HashSet<int>();
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "pgrep",
+                ArgumentList = { "-x", "ffmpeg" },
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            using var process = Process.Start(psi);
+            if (process is null)
+            {
+                return set;
+            }
+
+            var stdout = process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+            foreach (var line in stdout.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (int.TryParse(line.Trim(), out var pid))
+                {
+                    set.Add(pid);
+                }
+            }
+        }
+        catch
+        {
+            // Fall back below if pgrep is unavailable.
+        }
+
+        if (set.Count > 0)
+        {
+            return set;
+        }
+
+        foreach (var process in Process.GetProcesses())
+        {
+            try
+            {
+                if (process.ProcessName.Contains("ffmpeg", StringComparison.OrdinalIgnoreCase))
+                {
+                    set.Add(process.Id);
+                }
+            }
+            catch
+            {
             }
             finally
             {
