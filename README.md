@@ -20,7 +20,8 @@ Clipify 不只是在旧代码上堆功能。我们在保留「本地 Blazor + FF
 | **跨平台桌面，仍是 Hybrid** | 目标宿主 PhotinoX（Win / macOS / Linux），Razor 继续跑在本地 .NET 进程里 |
 | **给人和 Agent 同样可靠** | `clipify` 命令行给脚本与 CI；`clipify-mcp` 给 Claude Code 等 Agent，路径与风险可控 |
 
-当前仓库里，**新架构骨架已落地**（.NET 10、Domain / Application、EF Core SQLite 任务内核、Hosting Worker、三平台 CI）。下一阶段会接入自研 FFmpeg 基础设施，再依次补齐 CLI、MCP 与新 UI。
+当前仓库里，**新架构已具备任务内核与自研 FFmpeg 基础设施**（.NET 10、Domain / Application、EF Core SQLite、Hosting Worker、真实 trim/extract/thumbnail 任务）。下一阶段会补齐 CLI，再依次做 MCP 与新 UI。
+
 
 > **现阶段日常可用版本仍是 Windows 上的 WinForms + Blazor Hybrid。**  
 > 新跨平台版本尚未功能对等；WinForms 进入过渡维护，只修阻塞迁移或严重缺陷。
@@ -90,13 +91,13 @@ Clipify 不只是在旧代码上堆功能。我们在保留「本地 Blazor + FF
 | 0–1 | 安全基线、.NET 10 解决方案骨架、中央包管理、CI | 完成 |
 | 2 | 删除不可用的 MAUI 半成品 | 完成 |
 | 3 | Domain / Application、可持久化异步任务内核 | 完成 |
-| **4** | **自研 FFmpeg 基础设施与真实媒体任务** | **下一步** |
-| 5 | 共享 Hosting 与 `clipify` CLI | 计划中 |
+| 4 | 自研 FFmpeg 基础设施与真实媒体任务 | 完成（待合入 trunk） |
+| **5** | **共享 Hosting 与 `clipify` CLI** | **下一步** |
 | 6 | `clipify-mcp`（Agent 一等入口） | 计划中 |
 | 7–8 | PhotinoX 桌面壳 + Blazor Blueprint UI | 计划中 |
 | 9–10 | 与 WinForms 功能对等、归档旧版、发布完善 | 计划中 |
 
-集成分支：`modernization/trunk`（已合入 `master`）。阶段工作从 trunk 派生，例如 `modernization/phase-4-ffmpeg`。
+集成分支：`modernization/trunk`（已合入 `master`）。阶段工作从 trunk 派生，例如 `modernization/phase-5-cli`。
 
 完整决策与验收标准见 [modernization-plan.md](./docs/modernization-plan.md)。
 
@@ -121,7 +122,7 @@ src/
   Clipify.Application/   # 用例与端口
   Clipify.Persistence/   # EF Core · SQLite · 原子 Claim
   Clipify.Hosting/       # Worker 与组合根
-  Clipify.FFmpeg/        # （阶段 4）媒体基础设施
+  Clipify.FFmpeg/        # 自管 FFmpeg/ffprobe 与真实媒体 Handler
   Clipify.Cli/           # （阶段 5）命令行
   Clipify.Mcp/           # （阶段 6）MCP Server
   Clipify.Desktop/       # （阶段 7）跨平台壳

@@ -317,12 +317,19 @@ public sealed class InMemoryMediaJobStore : IMediaJobStore
 
     public ValueTask AddArtifactAsync(MediaArtifact artifact, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(artifact);
         lock (_gate)
         {
             if (!_artifacts.TryGetValue(artifact.JobId, out var list))
             {
                 list = [];
                 _artifacts[artifact.JobId] = list;
+            }
+
+            // Idempotent by stable ArtifactId so post-commit retries do not duplicate rows.
+            if (list.Any(a => string.Equals(a.ArtifactId, artifact.ArtifactId, StringComparison.Ordinal)))
+            {
+                return ValueTask.CompletedTask;
             }
 
             list.Add(artifact);

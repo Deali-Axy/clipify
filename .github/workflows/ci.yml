@@ -4,7 +4,7 @@ on:
   push:
     branches: [master, "modernization/**"]
   pull_request:
-    branches: [master]
+    branches: [master, "modernization/**"]
 
 jobs:
   build:
@@ -27,6 +27,29 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+
+      - name: Install FFmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          ffmpeg -version
+          ffprobe -version
+
+      - name: Install FFmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install ffmpeg
+          ffmpeg -version
+          ffprobe -version
+
+      - name: Install FFmpeg (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install ffmpeg -y --no-progress
+          ffmpeg -version
+          ffprobe -version
 
       - name: Restore new architecture
         run: |
