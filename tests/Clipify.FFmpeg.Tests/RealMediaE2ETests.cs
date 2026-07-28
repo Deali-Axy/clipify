@@ -169,6 +169,9 @@ public class RealMediaE2ETests : IAsyncLifetime
         });
 
         // Wait until the job is running AND an ffmpeg process for this job has appeared.
+        // Capture PIDs in the same observation that satisfies the wait — a second snapshot can
+        // miss a process that exits between polls on fast macOS runners.
+        var startedPids = Array.Empty<int>();
         await WaitForAsync(async () =>
         {
             var snap = await jobs.GetAsync(jobId);
@@ -188,10 +191,16 @@ public class RealMediaE2ETests : IAsyncLifetime
                 return false;
             }
 
-            return SnapshotFfmpegPids().Except(baselinePids).Any();
+            var current = SnapshotFfmpegPids().Except(baselinePids).ToArray();
+            if (current.Length == 0)
+            {
+                return false;
+            }
+
+            startedPids = current;
+            return true;
         }, TimeSpan.FromSeconds(30));
 
-        var startedPids = SnapshotFfmpegPids().Except(baselinePids).ToArray();
         Assert.NotEmpty(startedPids);
 
         await jobs.RequestCancelAsync(jobId);
