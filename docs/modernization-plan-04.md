@@ -74,12 +74,13 @@ dotnet build Clipify.sln -c Release --no-restore
 dotnet test Clipify.sln -c Release --no-build --no-restore
 ```
 
-本地结果（2026-07-28，Windows，含 Codex 审阅修复）：
+本地结果（2026-07-28，Windows，含提交边界闭合）：
 
 - `ffmpeg` / `ffprobe`：**8.1.2**（gyan.dev full_build，scoop）
 - Release build 成功（Forms 既有警告，0 errors）
-- 测试 **109** 通过（Domain 45 + Application 11 + FFmpeg 36 + Persistence 14 + skeleton 3）
+- 测试 **114** 通过（Domain 46 + Application 15 + FFmpeg 36 + Persistence 14 + skeleton 3）
 - 真实 E2E：tools 版本、trim/extract/thumbnail（含 ffprobe 产物校验）、中文路径、取消后 PID 退出与无正式/partial 残留
+- 提交边界竞态：Commit 后取消 → Succeeded；Commit 前取消 → Canceled；提交后元数据异常 → Succeeded
 
 ## 已知问题 / 偏差
 
@@ -97,6 +98,7 @@ dotnet test Clipify.sln -c Release --no-build --no-restore
 5. **Runner**：正常/取消路径均读到 EOF；VersionProbe/FFprobe 取消后 Kill 并等待退出。
 6. **时间戳**：`FormatTimestamp` 使用总小时数，覆盖 >24h。
 7. **取消 E2E**：快照本次 ffmpeg PID 并断言退出；ProcessHost 回传 parent/child PID。
+8. **提交边界闭合（二次复核）**：`MediaJobExecutionContext.MarkOutputCommitted()`；Executor 在已提交时强制 `Succeeded`（含从 `Canceling`）；允许 `Canceling → Succeeded`；Barrier 竞态测试覆盖 Commit 前后取消与提交后异常。
 
 ## 下一轮
 

@@ -31,7 +31,18 @@ public sealed record MediaJobCancelOutcome(
 
 public sealed class MediaJobExecutionContext
 {
+    private int _outputCommitted;
+
     public required MediaJobSnapshot Snapshot { get; init; }
     public required Func<MediaJobProgress, CancellationToken, ValueTask> ReportProgressAsync { get; init; }
     public required Func<MediaArtifact, CancellationToken, ValueTask> AddArtifactAsync { get; init; }
+
+    /// <summary>
+    /// True after the handler has irreversibly produced the job's primary output (file commit or
+    /// equivalent side effect). Once set, the executor must finish as <see cref="MediaJobState.Succeeded"/>
+    /// even if a cancel was requested.
+    /// </summary>
+    public bool OutputCommitted => Volatile.Read(ref _outputCommitted) != 0;
+
+    public void MarkOutputCommitted() => Interlocked.Exchange(ref _outputCommitted, 1);
 }

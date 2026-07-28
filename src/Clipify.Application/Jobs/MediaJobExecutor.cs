@@ -108,6 +108,7 @@ public sealed class MediaJobExecutor
         {
             var jobCts = _cancellation.Register(claimed.Id);
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(hostToken, jobCts.Token);
+            MediaJobExecutionContext? context = null;
 
             try
             {
@@ -121,7 +122,7 @@ public sealed class MediaJobExecutor
 
                 try
                 {
-                    var context = new MediaJobExecutionContext
+                    context = new MediaJobExecutionContext
                     {
                         Snapshot = claimed,
                         ReportProgressAsync = async (progress, ct) =>
@@ -148,34 +149,19 @@ public sealed class MediaJobExecutor
                     }
 
                     var completedAt = _timeProvider.GetUtcNow();
-                    if (await _store.IsCancelRequestedAsync(claimed.Id, CancellationToken.None).ConfigureAwait(false)
+                    if (context.OutputCommitted)
+                    {
+                        // Irreversible output exists — cancel requests must not win.
+                        await CompleteAsSucceededAsync(claimed.Id, completedAt).ConfigureAwait(false);
+                    }
+                    else if (await _store.IsCancelRequestedAsync(claimed.Id, CancellationToken.None).ConfigureAwait(false)
                         || linked.IsCancellationRequested)
                     {
                         await CompleteAsCanceledAsync(claimed.Id, completedAt).ConfigureAwait(false);
                     }
                     else
                     {
-                        var succeeded = await _store.TransitionAsync(
-                                claimed.Id,
-                                MediaJobState.Running,
-                                MediaJobState.Succeeded,
-                                completedAt,
-                                completedAt: completedAt,
-                                clearLeaseOwner: _options.LeaseOwner,
-                                cancellationToken: CancellationToken.None)
-                            .ConfigureAwait(false);
-
-                        if (succeeded)
-                        {
-                            await _changes.PublishAsync(
-                                    new MediaJobChange(claimed.Id, MediaJobState.Succeeded, completedAt),
-                                    CancellationToken.None)
-                                .ConfigureAwait(false);
-                        }
-                        else if (await _store.IsCancelRequestedAsync(claimed.Id, CancellationToken.None).ConfigureAwait(false))
-                        {
-                            await CompleteAsCanceledAsync(claimed.Id, completedAt).ConfigureAwait(false);
-                        }
+                        await CompleteAsSucceededAsync(claimed.Id, completedAt).ConfigureAwait(false);
                     }
                 }
                 finally
@@ -185,58 +171,73 @@ public sealed class MediaJobExecutor
             }
             catch (OperationCanceledException oce)
             {
-                var cancelRequested = jobCts.IsCancellationRequested
-                    || await _store.IsCancelRequestedAsync(claimed.Id, CancellationToken.None).ConfigureAwait(false);
-
-                if (cancelRequested)
+                if (context?.OutputCommitted == true)
                 {
-                    await CompleteAsCanceledAsync(claimed.Id, _timeProvider.GetUtcNow()).ConfigureAwait(false);
-                }
-                else if (!hostToken.IsCancellationRequested)
-                {
-                    throw;
+                    await CompleteAsSucceededAsync(claimed.Id, _timeProvider.GetUtcNow()).ConfigureAwait(false);
                 }
                 else
                 {
-                    // Host is stopping; leave state for lease repair / Interrupted.
-                    _ = oce;
+                    var cancelRequested = jobCts.IsCancellationRequested
+                        || await _store.IsCancelRequestedAsync(claimed.Id, CancellationToken.None).ConfigureAwait(false);
+
+                    if (cancelRequested)
+                    {
+                        await CompleteAsCanceledAsync(claimed.Id, _timeProvider.GetUtcNow()).ConfigureAwait(false);
+                    }
+                    else if (!hostToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    else
+                    {
+                        // Host is stopping; leave state for lease repair / Interrupted.
+                        _ = oce;
+                    }
                 }
             }
             catch (Exception ex)
             {
-                var failedAt = _timeProvider.GetUtcNow();
-                var current = await _store.GetAsync(claimed.Id, CancellationToken.None).ConfigureAwait(false);
-                var from = current?.State ?? MediaJobState.Running;
-
-                if (from is MediaJobState.Running or MediaJobState.Canceling)
+                if (context?.OutputCommitted == true)
                 {
-                    var (errorCode, errorMessage) = ex is Clipify.Application.Abstractions.ClipifyException clipify
-                        ? (clipify.Code.ToString(), clipify.Message)
-                        : (Clipify.Application.Abstractions.ClipifyErrorCode.HandlerFailed.ToString(), ex.Message);
+                    // Output is already on disk; converge to Succeeded despite metadata failure.
+                    await CompleteAsSucceededAsync(claimed.Id, _timeProvider.GetUtcNow()).ConfigureAwait(false);
+                }
+                else
+                {
+                    var failedAt = _timeProvider.GetUtcNow();
+                    var current = await _store.GetAsync(claimed.Id, CancellationToken.None).ConfigureAwait(false);
+                    var from = current?.State ?? MediaJobState.Running;
 
-                    var failed = await _store.TransitionAsync(
-                            claimed.Id,
-                            from,
-                            MediaJobState.Failed,
-                            failedAt,
-                            errorCode: errorCode,
-                            errorMessage: errorMessage,
-                            completedAt: failedAt,
-                            clearLeaseOwner: _options.LeaseOwner,
-                            cancellationToken: CancellationToken.None)
-                        .ConfigureAwait(false);
-
-                    if (failed)
+                    if (from is MediaJobState.Running or MediaJobState.Canceling)
                     {
-                        await _changes.PublishAsync(
-                                new MediaJobChange(
-                                    claimed.Id,
-                                    MediaJobState.Failed,
-                                    failedAt,
-                                    ErrorCode: errorCode,
-                                    ErrorMessage: errorMessage),
-                                CancellationToken.None)
+                        var (errorCode, errorMessage) = ex is Clipify.Application.Abstractions.ClipifyException clipify
+                            ? (clipify.Code.ToString(), clipify.Message)
+                            : (Clipify.Application.Abstractions.ClipifyErrorCode.HandlerFailed.ToString(), ex.Message);
+
+                        var failed = await _store.TransitionAsync(
+                                claimed.Id,
+                                from,
+                                MediaJobState.Failed,
+                                failedAt,
+                                errorCode: errorCode,
+                                errorMessage: errorMessage,
+                                completedAt: failedAt,
+                                clearLeaseOwner: _options.LeaseOwner,
+                                cancellationToken: CancellationToken.None)
                             .ConfigureAwait(false);
+
+                        if (failed)
+                        {
+                            await _changes.PublishAsync(
+                                    new MediaJobChange(
+                                        claimed.Id,
+                                        MediaJobState.Failed,
+                                        failedAt,
+                                        ErrorCode: errorCode,
+                                        ErrorMessage: errorMessage),
+                                    CancellationToken.None)
+                                .ConfigureAwait(false);
+                        }
                     }
                 }
             }
@@ -244,6 +245,38 @@ public sealed class MediaJobExecutor
             {
                 _cancellation.Unregister(claimed.Id);
             }
+        }
+    }
+
+    private async Task CompleteAsSucceededAsync(MediaJobId jobId, DateTimeOffset at)
+    {
+        var current = await _store.GetAsync(jobId, CancellationToken.None).ConfigureAwait(false);
+        if (current is null || MediaJobStateTransitions.IsTerminal(current.State))
+        {
+            return;
+        }
+
+        if (current.State is not (MediaJobState.Running or MediaJobState.Canceling))
+        {
+            return;
+        }
+
+        var succeeded = await _store.TransitionAsync(
+                jobId,
+                current.State,
+                MediaJobState.Succeeded,
+                at,
+                completedAt: at,
+                clearLeaseOwner: _options.LeaseOwner,
+                cancellationToken: CancellationToken.None)
+            .ConfigureAwait(false);
+
+        if (succeeded)
+        {
+            await _changes.PublishAsync(
+                    new MediaJobChange(jobId, MediaJobState.Succeeded, at),
+                    CancellationToken.None)
+                .ConfigureAwait(false);
         }
     }
 

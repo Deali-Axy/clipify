@@ -167,11 +167,17 @@ public class RealMediaE2ETests : IAsyncLifetime
             Format = AudioOutputFormat.Mp3,
         });
 
+        // Wait until the job is running AND an ffmpeg process for this job has appeared.
         await WaitForAsync(async () =>
         {
             var snap = await jobs.GetAsync(jobId);
-            return snap?.State is MediaJobState.Running or MediaJobState.Canceling;
-        }, TimeSpan.FromSeconds(10));
+            if (snap?.State is not (MediaJobState.Running or MediaJobState.Canceling))
+            {
+                return false;
+            }
+
+            return SnapshotFfmpegPids().Except(baselinePids).Any();
+        }, TimeSpan.FromSeconds(15));
 
         var startedPids = SnapshotFfmpegPids().Except(baselinePids).ToArray();
         Assert.NotEmpty(startedPids);

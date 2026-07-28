@@ -15,6 +15,7 @@ public class MediaJobStateTransitionsTests
     [InlineData(MediaJobState.Canceling, MediaJobState.Canceled)]
     [InlineData(MediaJobState.Canceling, MediaJobState.Interrupted)]
     [InlineData(MediaJobState.Canceling, MediaJobState.Failed)]
+    [InlineData(MediaJobState.Canceling, MediaJobState.Succeeded)]
     public void Allows_legal_transitions(MediaJobState from, MediaJobState to)
     {
         Assert.True(MediaJobStateTransitions.CanTransition(from, to));

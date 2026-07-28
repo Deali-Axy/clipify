@@ -80,10 +80,13 @@ public sealed class FakeDelayJobHandler : IMediaJobHandler<FakeDelayJobDefinitio
             throw new InvalidOperationException(definition.Label ?? "FakeDelayJobHandler was configured to fail.");
         }
 
+        // Commit boundary for the fake output side effect.
+        context.MarkOutputCommitted();
+
         var done = _timeProvider.GetUtcNow();
         await context.ReportProgressAsync(
                 MediaJobProgress.Create("completed", done, fraction: 1, message: definition.Label),
-                cancellationToken)
+                CancellationToken.None)
             .ConfigureAwait(false);
 
         await context.AddArtifactAsync(
@@ -93,7 +96,7 @@ public sealed class FakeDelayJobHandler : IMediaJobHandler<FakeDelayJobDefinitio
                     path: $"fake://{context.Snapshot.Id}/{definition.Label ?? "output"}",
                     createdAt: done,
                     sizeBytes: 0),
-                cancellationToken)
+                CancellationToken.None)
             .ConfigureAwait(false);
     }
 }

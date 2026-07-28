@@ -17,6 +17,8 @@ public static class MediaJobStateTransitions
         (MediaJobState.Canceling, MediaJobState.Canceled),
         (MediaJobState.Canceling, MediaJobState.Interrupted),
         (MediaJobState.Canceling, MediaJobState.Failed),
+        // Allowed when the handler crossed the output-commit boundary while cancel was already requested.
+        (MediaJobState.Canceling, MediaJobState.Succeeded),
     ];
 
     public static bool IsTerminal(MediaJobState state) =>

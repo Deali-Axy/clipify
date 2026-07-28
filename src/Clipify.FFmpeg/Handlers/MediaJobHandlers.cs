@@ -69,14 +69,14 @@ public abstract class MediaJobHandlerBase
                 // Commit boundary: once skipped/committed, finish with a non-cancellable token.
                 var skipped = await _committer.CommitAsync(preparation, CancellationToken.None)
                     .ConfigureAwait(false);
+                context.MarkOutputCommitted();
                 await FinishCommittedAsync(
                         context,
                         artifactKind,
                         skipped.CommittedPath,
                         skipped.SizeBytes,
                         contentType,
-                        total,
-                        CancellationToken.None)
+                        total)
                     .ConfigureAwait(false);
                 return;
             }
@@ -136,6 +136,7 @@ public abstract class MediaJobHandlerBase
             // leave "Canceled + final output on disk" without Artifact, or delete committed files.
             var committed = await _committer.CommitAsync(preparation, CancellationToken.None)
                 .ConfigureAwait(false);
+            context.MarkOutputCommitted();
 
             await FinishCommittedAsync(
                     context,
@@ -143,8 +144,7 @@ public abstract class MediaJobHandlerBase
                     committed.CommittedPath,
                     committed.SizeBytes,
                     contentType,
-                    total,
-                    CancellationToken.None)
+                    total)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
@@ -202,13 +202,42 @@ public abstract class MediaJobHandlerBase
         string committedPath,
         long? sizeBytes,
         string? contentType,
-        TimeSpan? total,
-        CancellationToken commitToken)
+        TimeSpan? total)
     {
-        await ReportAsync(context, "commit", 0.95, total, total, commitToken).ConfigureAwait(false);
-        await CompleteArtifactAsync(context, artifactKind, committedPath, sizeBytes, contentType, commitToken)
-            .ConfigureAwait(false);
-        await ReportAsync(context, "completed", 1, total, total, commitToken).ConfigureAwait(false);
+        const int maxAttempts = 3;
+        Exception? last = null;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                await ReportAsync(context, "commit", 0.95, total, total, CancellationToken.None)
+                    .ConfigureAwait(false);
+                await CompleteArtifactAsync(
+                        context,
+                        artifactKind,
+                        committedPath,
+                        sizeBytes,
+                        contentType,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                await ReportAsync(context, "completed", 1, total, total, CancellationToken.None)
+                    .ConfigureAwait(false);
+                return;
+            }
+            catch (Exception ex) when (attempt < maxAttempts)
+            {
+                last = ex;
+                _logger.LogWarning(
+                    ex,
+                    "Post-commit metadata write failed for job {JobId} (attempt {Attempt}/{Max}).",
+                    context.Snapshot.Id,
+                    attempt,
+                    maxAttempts);
+                await Task.Delay(TimeSpan.FromMilliseconds(50 * attempt)).ConfigureAwait(false);
+            }
+        }
+
+        throw last ?? new InvalidOperationException("Post-commit metadata write failed.");
     }
 
     private async Task ReportProgressSnapshotAsync(
