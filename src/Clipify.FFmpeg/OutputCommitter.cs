@@ -82,6 +82,7 @@ public sealed class OutputCommitter : IOutputCommitter
 
         if (preparation.SkipExecution)
         {
+            preparation.Committed = true;
             long? existingSize = null;
             if (preparation.ExistingOutputPath is not null && File.Exists(preparation.ExistingOutputPath))
             {
@@ -112,12 +113,6 @@ public sealed class OutputCommitter : IOutputCommitter
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (preparation.ConflictPolicy == OutputConflictPolicy.Overwrite
-            && File.Exists(preparation.FinalOutputPath))
-        {
-            File.Delete(preparation.FinalOutputPath);
-        }
-
         if (File.Exists(preparation.FinalOutputPath)
             && preparation.ConflictPolicy != OutputConflictPolicy.Overwrite)
         {
@@ -134,34 +129,92 @@ public sealed class OutputCommitter : IOutputCommitter
             {
                 var renamed = AllocateRenamePath(preparation.FinalOutputPath);
                 File.Move(preparation.TemporaryOutputPath, renamed);
+                preparation.Committed = true;
                 return ValueTask.FromResult(new OutputCommitResult(renamed, Skipped: false, tempInfo.Length));
             }
 
             if (preparation.ConflictPolicy == OutputConflictPolicy.Skip)
             {
                 Cleanup(preparation);
+                preparation.Committed = true;
                 var size = new FileInfo(preparation.FinalOutputPath).Length;
                 return ValueTask.FromResult(new OutputCommitResult(preparation.FinalOutputPath, Skipped: true, size));
             }
         }
 
-        File.Move(preparation.TemporaryOutputPath, preparation.FinalOutputPath);
+        if (preparation.ConflictPolicy == OutputConflictPolicy.Overwrite
+            && File.Exists(preparation.FinalOutputPath))
+        {
+            ReplaceAtomically(preparation.TemporaryOutputPath, preparation.FinalOutputPath, preparation.JobId);
+        }
+        else
+        {
+            File.Move(preparation.TemporaryOutputPath, preparation.FinalOutputPath);
+        }
+
+        preparation.Committed = true;
         return ValueTask.FromResult(new OutputCommitResult(preparation.FinalOutputPath, Skipped: false, tempInfo.Length));
     }
 
     public void Cleanup(OutputPreparation preparation)
     {
         ArgumentNullException.ThrowIfNull(preparation);
+        if (preparation.Committed)
+        {
+            return;
+        }
+
+        TryDelete(preparation.TemporaryOutputPath);
+    }
+
+    /// <summary>
+    /// Replaces <paramref name="destination"/> with <paramref name="source"/> using a backup so a failed
+    /// replace can restore the original. Source and destination must be on the same volume (same directory).
+    /// </summary>
+    internal static void ReplaceAtomically(string source, string destination, MediaJobId jobId)
+    {
+        var directory = Path.GetDirectoryName(destination)!;
+        var backup = Path.Combine(
+            directory,
+            $".{Path.GetFileNameWithoutExtension(destination)}.clipify-backup-{jobId.Value}{Path.GetExtension(destination)}");
+
+        TryDelete(backup);
+
         try
         {
-            if (File.Exists(preparation.TemporaryOutputPath))
+            File.Replace(source, destination, backup, ignoreMetadataErrors: true);
+            TryDelete(backup);
+        }
+        catch
+        {
+            // If destination vanished and backup remains, restore the user's original file.
+            if (!File.Exists(destination) && File.Exists(backup))
             {
-                File.Delete(preparation.TemporaryOutputPath);
+                try
+                {
+                    File.Move(backup, destination);
+                }
+                catch
+                {
+                    // Preserve original exception below.
+                }
+            }
+
+            throw;
+        }
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
             }
         }
         catch (IOException)
         {
-            // best-effort cleanup
         }
         catch (UnauthorizedAccessException)
         {

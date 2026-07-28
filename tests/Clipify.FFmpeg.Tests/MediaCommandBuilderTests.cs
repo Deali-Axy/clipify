@@ -67,4 +67,15 @@ public class MediaCommandBuilderTests
         Assert.Equal("00:00:01.500", args[args.IndexOf("-ss") + 1]);
         Assert.Equal("1", args[args.IndexOf("-frames:v") + 1]);
     }
+
+    [Fact]
+    public void FormatTimestamp_does_not_wrap_after_24_hours()
+    {
+        Assert.Equal("25:30:00.500", FFmpegCommonArguments.FormatTimestamp(
+            TimeSpan.FromHours(25) + TimeSpan.FromMinutes(30) + TimeSpan.FromMilliseconds(500)));
+        Assert.Equal("00:00:00.000", FFmpegCommonArguments.FormatTimestamp(TimeSpan.Zero));
+        Assert.Equal("100:00:00.000", FFmpegCommonArguments.FormatTimestamp(TimeSpan.FromHours(100)));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            FFmpegCommonArguments.FormatTimestamp(TimeSpan.FromSeconds(-1)));
+    }
 }

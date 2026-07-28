@@ -67,7 +67,8 @@ public sealed record FFmpegProcessResult(
     int ExitCode,
     bool WasCanceled,
     string StderrSummary,
-    FFmpegProgressSnapshot? LastProgress);
+    FFmpegProgressSnapshot? LastProgress,
+    int ProcessId = 0);
 
 public interface IFFprobeClient
 {
@@ -107,6 +108,11 @@ public sealed class OutputPreparation
     public required OutputConflictPolicy ConflictPolicy { get; init; }
     public bool SkipExecution { get; init; }
     public string? ExistingOutputPath { get; init; }
+
+    /// <summary>
+    /// Set after a successful commit. Cleanup must not delete the committed final file.
+    /// </summary>
+    public bool Committed { get; set; }
 }
 
 public sealed record OutputCommitResult(

@@ -74,18 +74,29 @@ dotnet build Clipify.sln -c Release --no-restore
 dotnet test Clipify.sln -c Release --no-build --no-restore
 ```
 
-本地结果（2026-07-28，Windows）：
+本地结果（2026-07-28，Windows，含 Codex 审阅修复）：
 
 - `ffmpeg` / `ffprobe`：**8.1.2**（gyan.dev full_build，scoop）
 - Release build 成功（Forms 既有警告，0 errors）
-- 测试 **106** 通过（Domain 45 + Application 11 + FFmpeg 33 + Persistence 14 + skeleton 3）
-- 真实 E2E：tools 版本检查、trim/extract/thumbnail、中文路径、取消无正式/partial 残留、probe use case
+- 测试 **109** 通过（Domain 45 + Application 11 + FFmpeg 36 + Persistence 14 + skeleton 3）
+- 真实 E2E：tools 版本、trim/extract/thumbnail（含 ffprobe 产物校验）、中文路径、取消后 PID 退出与无正式/partial 残留
 
 ## 已知问题 / 偏差
 
 - FFprobe 为获取 stdout JSON，在 `FFprobeClient` 内使用与 Runner 相同安全规则的独立进程启动；尚未把“捕获 stdout 文本”并入通用 `IFFmpegProcessRunner`（进度协议仍走 Runner）。
-- 取消 E2E 不强制断言本机全局 ffmpeg 进程数为 0（避免误伤其他进程）；断言任务进入 `Canceled` 且无正式/partial 输出。
 - 三平台 CI 与发布包内 FFmpeg 分发仍属后续工作。
+
+## Codex 审阅修复（2026-07-28）
+
+已修复并补测：
+
+1. **提交边界**：verify 通过后 Commit/Artifact/completed 使用 `CancellationToken.None`；`OutputPreparation.Committed` 后 Cleanup 不再删除正式输出。
+2. **Overwrite**：同目录 `File.Replace` + backup 恢复；锁定目标失败时保留原文件。
+3. **`out_time_ms`**：按微秒 PTS 解析（历史误名）。
+4. **verify**：提交前 ffprobe 临时产物；trim 校验时长、extract 校验音轨、thumbnail 校验可读帧。
+5. **Runner**：正常/取消路径均读到 EOF；VersionProbe/FFprobe 取消后 Kill 并等待退出。
+6. **时间戳**：`FormatTimestamp` 使用总小时数，覆盖 >24h。
+7. **取消 E2E**：快照本次 ffmpeg PID 并断言退出；ProcessHost 回传 parent/child PID。
 
 ## 下一轮
 

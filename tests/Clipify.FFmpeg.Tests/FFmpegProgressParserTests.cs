@@ -47,10 +47,11 @@ public class FFmpegProgressParserTests
     }
 
     [Fact]
-    public void Uses_out_time_ms_when_us_missing()
+    public void Uses_out_time_ms_as_microseconds_when_us_missing()
     {
         var parser = new FFmpegProgressParser();
-        parser.Append("out_time_ms=2500\n");
+        // 2_500_000 "out_time_ms" == 2.5 seconds (field is misnamed microseconds).
+        parser.Append("out_time_ms=2500000\n");
         parser.Append("progress=continue\n");
 
         Assert.True(parser.TryDequeueSnapshot(out var snapshot));

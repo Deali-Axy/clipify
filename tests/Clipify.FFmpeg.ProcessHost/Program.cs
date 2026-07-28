@@ -94,6 +94,7 @@ internal static class Program
     private static async Task<int> ChildTreeAsync(string[] args)
     {
         var holdMs = args.Length > 1 ? int.Parse(args[1], CultureInfo.InvariantCulture) : 30_000;
+        var pidFile = args.Length > 2 ? args[2] : null;
         var self = Environment.ProcessPath
             ?? throw new InvalidOperationException("ProcessPath unavailable.");
 
@@ -115,6 +116,13 @@ internal static class Program
         if (!child.Start())
         {
             return 3;
+        }
+
+        if (!string.IsNullOrWhiteSpace(pidFile))
+        {
+            await File.WriteAllTextAsync(
+                pidFile,
+                string.Create(CultureInfo.InvariantCulture, $"parent={Environment.ProcessId}\nchild={child.Id}\n"));
         }
 
         try

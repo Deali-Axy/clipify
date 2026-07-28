@@ -95,6 +95,22 @@ public class RealMediaE2ETests : IAsyncLifetime
         Assert.True(new FileInfo(audioOut).Length > 0);
         Assert.True(new FileInfo(thumbOut).Length > 0);
 
+        var probe = host.Services.GetRequiredService<IProbeMediaUseCase>();
+        var trimInfo = await probe.ExecuteAsync(trimOut);
+        Assert.True(trimInfo.IsSuccess);
+        Assert.NotNull(trimInfo.Value!.Duration);
+        Assert.True(
+            (trimInfo.Value.Duration.Value - TimeSpan.FromSeconds(1)).Duration() < TimeSpan.FromMilliseconds(750),
+            $"trim duration {trimInfo.Value.Duration}");
+
+        var audioInfo = await probe.ExecuteAsync(audioOut);
+        Assert.True(audioInfo.IsSuccess);
+        Assert.Contains(audioInfo.Value!.Streams, s => s.CodecType == "audio");
+
+        var thumbInfo = await probe.ExecuteAsync(thumbOut);
+        Assert.True(thumbInfo.IsSuccess);
+        Assert.Contains(thumbInfo.Value!.Streams, s => s.CodecType == "video");
+
         Assert.Single(await jobs.ListArtifactsAsync(trimId));
         Assert.Single(await jobs.ListArtifactsAsync(audioId));
         Assert.Single(await jobs.ListArtifactsAsync(thumbId));
@@ -130,24 +146,25 @@ public class RealMediaE2ETests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Cancel_leaves_no_final_or_partial_output_and_no_ffmpeg_process()
+    public async Task Cancel_leaves_no_final_or_partial_output_and_ffmpeg_pids_exit()
     {
         await InitializeAsync();
         using var workspace = new TempWorkspace();
-        // Longer source so cancel has a window.
         var longSource = Path.Combine(workspace.Path, "long.mp4");
         await GenerateSourceAsync(longSource, durationSeconds: 8);
 
         using var host = await StartHostAsync(workspace);
         var jobs = host.Services.GetRequiredService<IMediaJobService>();
-        var output = Path.Combine(workspace.Path, "cancel-out.mp4");
+        var output = Path.Combine(workspace.Path, "cancel-out.mp3");
 
-        var jobId = await jobs.EnqueueAsync(new TrimMediaJobDefinition
+        var baselinePids = SnapshotFfmpegPids();
+
+        // Use extract-audio (re-encode) so cancel has a real window; stream-copy trim is too fast.
+        var jobId = await jobs.EnqueueAsync(new ExtractAudioJobDefinition
         {
             InputPath = longSource,
             OutputPath = output,
-            // Re-encode-ish length: use copy of long range so ffmpeg runs longer.
-            Range = TimeRange.FromMilliseconds(0, 7000),
+            Format = AudioOutputFormat.Mp3,
         });
 
         await WaitForAsync(async () =>
@@ -155,6 +172,9 @@ public class RealMediaE2ETests : IAsyncLifetime
             var snap = await jobs.GetAsync(jobId);
             return snap?.State is MediaJobState.Running or MediaJobState.Canceling;
         }, TimeSpan.FromSeconds(10));
+
+        var startedPids = SnapshotFfmpegPids().Except(baselinePids).ToArray();
+        Assert.NotEmpty(startedPids);
 
         await jobs.RequestCancelAsync(jobId);
 
@@ -167,24 +187,53 @@ public class RealMediaE2ETests : IAsyncLifetime
         Assert.False(File.Exists(output));
         Assert.Empty(Directory.GetFiles(workspace.Path, "*.partial*", SearchOption.AllDirectories));
 
-        // Best-effort: no ffmpeg child should remain for this output name.
-        var leftovers = Process.GetProcesses()
-            .Where(p =>
-            {
-                try
-                {
-                    return p.ProcessName.Contains("ffmpeg", StringComparison.OrdinalIgnoreCase);
-                }
-                catch
-                {
-                    return false;
-                }
-            })
-            .ToList();
+        foreach (var pid in startedPids)
+        {
+            AssertProcessExited(pid);
+        }
 
-        // Do not assert zero globally (other system ffmpeg may exist); just ensure our cancel completed.
-        Assert.NotNull(leftovers);
         await host.StopAsync();
+    }
+
+    private static HashSet<int> SnapshotFfmpegPids()
+    {
+        var set = new HashSet<int>();
+        foreach (var process in Process.GetProcesses())
+        {
+            try
+            {
+                if (process.ProcessName.Contains("ffmpeg", StringComparison.OrdinalIgnoreCase))
+                {
+                    set.Add(process.Id);
+                }
+            }
+            catch
+            {
+                // ignore access races
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+
+        return set;
+    }
+
+    private static void AssertProcessExited(int pid)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(pid);
+            if (!process.HasExited)
+            {
+                Assert.Fail($"FFmpeg process {pid} is still running after cancel.");
+            }
+        }
+        catch (ArgumentException)
+        {
+            // exited and removed from process table
+        }
     }
 
     [Fact]

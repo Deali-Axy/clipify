@@ -38,6 +38,7 @@ public abstract class MediaJobHandlerBase
         OutputConflictPolicy conflictPolicy,
         TimeSpan? totalDurationHint,
         Func<string, IReadOnlyList<string>> buildArgs,
+        Func<MediaInfo, Task>? verifyProbedOutput,
         string artifactKind,
         string? contentType,
         MediaJobExecutionContext context,
@@ -65,10 +66,18 @@ public abstract class MediaJobHandlerBase
 
             if (preparation.SkipExecution)
             {
-                var skipped = await _committer.CommitAsync(preparation, cancellationToken).ConfigureAwait(false);
-                await CompleteArtifactAsync(context, artifactKind, skipped.CommittedPath, skipped.SizeBytes, contentType, cancellationToken)
+                // Commit boundary: once skipped/committed, finish with a non-cancellable token.
+                var skipped = await _committer.CommitAsync(preparation, CancellationToken.None)
                     .ConfigureAwait(false);
-                await ReportAsync(context, "completed", 1, total, total, cancellationToken).ConfigureAwait(false);
+                await FinishCommittedAsync(
+                        context,
+                        artifactKind,
+                        skipped.CommittedPath,
+                        skipped.SizeBytes,
+                        contentType,
+                        total,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
                 return;
             }
 
@@ -114,21 +123,29 @@ public abstract class MediaJobHandlerBase
                     $"FFmpeg failed with exit code {result.ExitCode}.");
             }
 
-            await ReportAsync(context, "verify", 0.9, total, total, cancellationToken).ConfigureAwait(false);
-            var committed = await _committer.CommitAsync(preparation, cancellationToken).ConfigureAwait(false);
+            // Last chance to honor cancel before the irreversible commit boundary.
+            cancellationToken.ThrowIfCancellationRequested();
 
-            await ReportAsync(context, "commit", 0.95, total, total, cancellationToken).ConfigureAwait(false);
-            await CompleteArtifactAsync(
+            await ReportAsync(context, "verify", 0.9, total, total, cancellationToken).ConfigureAwait(false);
+            await VerifyTemporaryOutputAsync(preparation.TemporaryOutputPath, verifyProbedOutput, cancellationToken)
+                .ConfigureAwait(false);
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Commit boundary: from here use CancellationToken.None so a late cancel cannot
+            // leave "Canceled + final output on disk" without Artifact, or delete committed files.
+            var committed = await _committer.CommitAsync(preparation, CancellationToken.None)
+                .ConfigureAwait(false);
+
+            await FinishCommittedAsync(
                     context,
                     artifactKind,
                     committed.CommittedPath,
                     committed.SizeBytes,
                     contentType,
-                    cancellationToken)
+                    total,
+                    CancellationToken.None)
                 .ConfigureAwait(false);
-
-            await ReportAsync(context, "completed", 1, total, total, cancellationToken).ConfigureAwait(false);
-            preparation = null;
         }
         catch (OperationCanceledException)
         {
@@ -148,6 +165,50 @@ public abstract class MediaJobHandlerBase
 
             throw;
         }
+    }
+
+    private async Task VerifyTemporaryOutputAsync(
+        string temporaryOutputPath,
+        Func<MediaInfo, Task>? verifyProbedOutput,
+        CancellationToken cancellationToken)
+    {
+        MediaInfo probed;
+        try
+        {
+            probed = await _ffprobe.ProbeAsync(temporaryOutputPath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ClipifyException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new ClipifyException(
+                ClipifyErrorCode.FfmpegFailed,
+                "Temporary output failed media verification.",
+                detail: ex.Message,
+                innerException: ex);
+        }
+
+        if (verifyProbedOutput is not null)
+        {
+            await verifyProbedOutput(probed).ConfigureAwait(false);
+        }
+    }
+
+    private async Task FinishCommittedAsync(
+        MediaJobExecutionContext context,
+        string artifactKind,
+        string committedPath,
+        long? sizeBytes,
+        string? contentType,
+        TimeSpan? total,
+        CancellationToken commitToken)
+    {
+        await ReportAsync(context, "commit", 0.95, total, total, commitToken).ConfigureAwait(false);
+        await CompleteArtifactAsync(context, artifactKind, committedPath, sizeBytes, contentType, commitToken)
+            .ConfigureAwait(false);
+        await ReportAsync(context, "completed", 1, total, total, commitToken).ConfigureAwait(false);
     }
 
     private async Task ReportProgressSnapshotAsync(
@@ -243,6 +304,36 @@ public abstract class MediaJobHandlerBase
             throw new ClipifyException(ClipifyErrorCode.NotFound, $"Input file not found: {fullInput}");
         }
     }
+
+    protected static Task EnsureHasStreamAsync(MediaInfo info, string codecType, string message)
+    {
+        if (!info.Streams.Any(s => string.Equals(s.CodecType, codecType, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ClipifyException(ClipifyErrorCode.FfmpegFailed, message);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    protected static Task EnsureDurationNearAsync(MediaInfo info, TimeSpan expected, TimeSpan tolerance)
+    {
+        if (info.Duration is null)
+        {
+            throw new ClipifyException(
+                ClipifyErrorCode.FfmpegFailed,
+                "Temporary output has no measurable duration.");
+        }
+
+        var delta = (info.Duration.Value - expected).Duration();
+        if (delta > tolerance)
+        {
+            throw new ClipifyException(
+                ClipifyErrorCode.FfmpegFailed,
+                $"Temporary output duration {info.Duration} differs from expected {expected}.");
+        }
+
+        return Task.CompletedTask;
+    }
 }
 
 public sealed class TrimMediaJobHandler : MediaJobHandlerBase, IMediaJobHandler<TrimMediaJobDefinition>
@@ -272,6 +363,7 @@ public sealed class TrimMediaJobHandler : MediaJobHandlerBase, IMediaJobHandler<
             definition.ConflictPolicy,
             definition.Range.Duration,
             temp => _builder.Build(definition, temp),
+            info => EnsureDurationNearAsync(info, definition.Range.Duration, TimeSpan.FromMilliseconds(750)),
             artifactKind: "trimmed_media",
             contentType: null,
             context,
@@ -305,6 +397,7 @@ public sealed class ExtractAudioJobHandler : MediaJobHandlerBase, IMediaJobHandl
             definition.ConflictPolicy,
             totalDurationHint: null,
             temp => _builder.Build(definition, temp),
+            info => EnsureHasStreamAsync(info, "audio", "Temporary audio output has no audio stream."),
             artifactKind: "extracted_audio",
             contentType: ContentTypeFor(definition.Format),
             context,
@@ -346,6 +439,7 @@ public sealed class ThumbnailJobHandler : MediaJobHandlerBase, IMediaJobHandler<
             definition.ConflictPolicy,
             totalDurationHint: null,
             temp => _builder.Build(definition, temp),
+            info => EnsureHasStreamAsync(info, "video", "Temporary thumbnail output is not a readable image/video frame."),
             artifactKind: "thumbnail",
             contentType: definition.Format == ThumbnailImageFormat.Png ? "image/png" : "image/jpeg",
             context,

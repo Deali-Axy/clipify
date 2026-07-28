@@ -95,10 +95,11 @@ public sealed class FFmpegProgressParser : IFFmpegProgressParser
 
                 break;
             case "out_time_ms":
-                // Compatibility: some builds emit out_time_ms (milliseconds).
-                if (_outTime is null && TryParseInt64(value, out var ms) && ms >= 0)
+                // Historical misnomer: value is microseconds (same PTS units as out_time_us).
+                // See https://ffmpeg.org/pipermail/ffmpeg-cvslog/2018-August/114915.html
+                if (_outTime is null && TryParseInt64(value, out var legacyUs) && legacyUs >= 0)
                 {
-                    _outTime = TimeSpan.FromMilliseconds(ms);
+                    _outTime = TimeSpan.FromTicks(legacyUs * 10);
                 }
 
                 break;

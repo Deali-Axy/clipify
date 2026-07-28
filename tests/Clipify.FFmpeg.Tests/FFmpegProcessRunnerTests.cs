@@ -1,3 +1,6 @@
+using System.Diagnostics;
+using System.Globalization;
+using System.Text.RegularExpressions;
 using Clipify.Application.Abstractions;
 using Clipify.Application.Media;
 using Clipify.FFmpeg;
@@ -171,19 +174,63 @@ public class FFmpegProcessRunnerTests
     }
 
     [Fact]
-    public async Task Cancel_kills_process_tree()
+    public async Task Cancel_kills_process_tree_and_exits_reported_pids()
     {
-        var (exe, args) = Host("child-tree", "60000");
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
-        var runner = CreateRunner();
+        var pidFile = Path.Combine(Path.GetTempPath(), $"clipify-pids-{Guid.NewGuid():N}.txt");
+        try
+        {
+            var (exe, args) = Host("child-tree", "60000", pidFile);
+            using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+            var runner = CreateRunner();
 
-        var result = await runner.RunAsync(
-            new FFmpegProcessSpec(exe, args, CancelGracePeriod: TimeSpan.FromMilliseconds(100)),
-            cts.Token);
+            var result = await runner.RunAsync(
+                new FFmpegProcessSpec(exe, args, CancelGracePeriod: TimeSpan.FromMilliseconds(100)),
+                cts.Token);
 
-        Assert.True(result.WasCanceled);
-        // Process should have exited after kill; ExitCode is platform-defined after kill.
-        Assert.True(result.ExitCode != 0 || result.WasCanceled);
+            Assert.True(result.WasCanceled);
+            Assert.True(result.ProcessId > 0);
+            AssertProcessExited(result.ProcessId);
+
+            // Wait briefly for pid file flush from child-tree host.
+            var deadline = DateTime.UtcNow.AddSeconds(2);
+            while (!File.Exists(pidFile) && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(20);
+            }
+
+            if (File.Exists(pidFile))
+            {
+                var text = await File.ReadAllTextAsync(pidFile);
+                foreach (Match match in Regex.Matches(text, @"(?:parent|child)=(\d+)"))
+                {
+                    AssertProcessExited(int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture));
+                }
+            }
+        }
+        finally
+        {
+            if (File.Exists(pidFile))
+            {
+                File.Delete(pidFile);
+            }
+        }
+    }
+
+    private static void AssertProcessExited(int pid)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(pid);
+            // If we can open it, it must have already exited (zombie/handle) or still running.
+            if (!process.HasExited)
+            {
+                Assert.Fail($"Process {pid} is still running after cancel.");
+            }
+        }
+        catch (ArgumentException)
+        {
+            // Process no longer exists — expected.
+        }
     }
 
     [Fact]

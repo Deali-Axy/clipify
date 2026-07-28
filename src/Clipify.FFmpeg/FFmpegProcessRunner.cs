@@ -135,36 +135,31 @@ public sealed class FFmpegProcessRunner : IFFmpegProcessRunner
         FFmpegProgressSnapshot? lastProgress = null;
         var wasCanceled = false;
 
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var stdoutTask = DrainStdoutAsync(process.StandardOutput, parser, spec.OnProgress, snapshot => lastProgress = snapshot, linkedCts.Token);
-        var stderrTask = DrainStderrAsync(process.StandardError, stderr, stderrLimit, linkedCts.Token);
+        // Drain to EOF independently of cancel — pipes close when the process exits/is killed.
+        var stdoutTask = DrainStdoutAsync(
+            process.StandardOutput,
+            parser,
+            spec.OnProgress,
+            snapshot => lastProgress = snapshot);
+        var stderrTask = DrainStderrAsync(process.StandardError, stderr, stderrLimit);
 
         try
         {
-            await process.WaitForExitAsync(linkedCts.Token).ConfigureAwait(false);
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
             wasCanceled = true;
-            await TerminateAsync(process, spec.CancelGracePeriod ?? _options.CancelGracePeriod).ConfigureAwait(false);
-        }
-        finally
-        {
-            await linkedCts.CancelAsync().ConfigureAwait(false);
-            try
-            {
-                await Task.WhenAll(stdoutTask, stderrTask).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                // expected when draining stops after cancel
-            }
+            await TerminateAsync(process, spec.CancelGracePeriod ?? _options.CancelGracePeriod)
+                .ConfigureAwait(false);
         }
 
         if (!process.HasExited)
         {
             await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
         }
+
+        await Task.WhenAll(stdoutTask, stderrTask).ConfigureAwait(false);
 
         var stderrSummary = stderr.ToString();
         if (stderrSummary.Length > 0)
@@ -180,7 +175,8 @@ public sealed class FFmpegProcessRunner : IFFmpegProcessRunner
             process.ExitCode,
             wasCanceled,
             stderrSummary,
-            lastProgress);
+            lastProgress,
+            process.Id);
     }
 
     private async Task TerminateAsync(IStartedFFmpegProcess process, TimeSpan gracePeriod)
@@ -234,14 +230,12 @@ public sealed class FFmpegProcessRunner : IFFmpegProcessRunner
         StreamReader reader,
         FFmpegProgressParser parser,
         Action<FFmpegProgressSnapshot>? onProgress,
-        Action<FFmpegProgressSnapshot> setLast,
-        CancellationToken cancellationToken)
+        Action<FFmpegProgressSnapshot> setLast)
     {
         var buffer = new char[4096];
-        while (!cancellationToken.IsCancellationRequested)
+        while (true)
         {
-            var read = await reader.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)
-                .ConfigureAwait(false);
+            var read = await reader.ReadAsync(buffer.AsMemory(0, buffer.Length)).ConfigureAwait(false);
             if (read == 0)
             {
                 break;
@@ -256,17 +250,12 @@ public sealed class FFmpegProcessRunner : IFFmpegProcessRunner
         }
     }
 
-    private static async Task DrainStderrAsync(
-        StreamReader reader,
-        StringBuilder sink,
-        int limit,
-        CancellationToken cancellationToken)
+    private static async Task DrainStderrAsync(StreamReader reader, StringBuilder sink, int limit)
     {
         var buffer = new char[4096];
-        while (!cancellationToken.IsCancellationRequested)
+        while (true)
         {
-            var read = await reader.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)
-                .ConfigureAwait(false);
+            var read = await reader.ReadAsync(buffer.AsMemory(0, buffer.Length)).ConfigureAwait(false);
             if (read == 0)
             {
                 break;

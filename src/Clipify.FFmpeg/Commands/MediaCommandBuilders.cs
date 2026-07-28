@@ -18,8 +18,22 @@ internal static class FFmpegCommonArguments
         args.Add("pipe:1");
     }
 
-    public static string FormatTimestamp(TimeSpan value) =>
-        value.ToString(@"hh\:mm\:ss\.fff", CultureInfo.InvariantCulture);
+    public static string FormatTimestamp(TimeSpan value)
+    {
+        if (value < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(value), value, "Timestamp must be non-negative.");
+        }
+
+        // Do not use custom "hh" — it is the 0–23 hour component and wraps after 24 hours.
+        var totalHours = (long)value.TotalHours;
+        var hours = totalHours < 100
+            ? totalHours.ToString("D2", CultureInfo.InvariantCulture)
+            : totalHours.ToString(CultureInfo.InvariantCulture);
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"{hours}:{value.Minutes:D2}:{value.Seconds:D2}.{value.Milliseconds:D3}");
+    }
 }
 
 public sealed class TrimMediaCommandBuilder : IFFmpegCommandBuilder<TrimMediaJobDefinition>

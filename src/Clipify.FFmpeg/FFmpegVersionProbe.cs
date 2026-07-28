@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Globalization;
 using System.Text;
 using Clipify.Application.Abstractions;
 using Clipify.Application.Media;
@@ -83,7 +82,15 @@ public sealed class FFmpegVersionProbe : IFFmpegVersionProbe
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            await TerminateAndWaitAsync(process).ConfigureAwait(false);
+            throw;
+        }
 
         var output = stdout.ToString();
         if (process.ExitCode != 0 || string.IsNullOrWhiteSpace(output))
@@ -105,6 +112,29 @@ public sealed class FFmpegVersionProbe : IFFmpegVersionProbe
             ?? output.Trim();
 
         return new FFmpegToolVersion(executablePath, firstLine, output);
+    }
+
+    private static async Task TerminateAndWaitAsync(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+        }
+
+        try
+        {
+            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+        catch
+        {
+            // best-effort
+        }
     }
 
     private static string Truncate(string value, int max) =>

@@ -87,6 +87,41 @@ public class OutputCommitterTests
     }
 
     [Fact]
+    public async Task Overwrite_replace_failure_keeps_original_when_destination_locked()
+    {
+        using var dir = new TempDir();
+        var finalPath = Path.Combine(dir.Path, "out.mp4");
+        var tempPath = Path.Combine(dir.Path, ".out.clipify-job.partial.mp4");
+        await File.WriteAllTextAsync(finalPath, "original");
+        await File.WriteAllTextAsync(tempPath, "replacement");
+
+        await using (var locked = new FileStream(finalPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            _ = locked;
+            Assert.ThrowsAny<IOException>(() =>
+                OutputCommitter.ReplaceAtomically(tempPath, finalPath, MediaJobId.New()));
+        }
+
+        Assert.Equal("original", await File.ReadAllTextAsync(finalPath));
+    }
+
+    [Fact]
+    public async Task Cleanup_after_commit_does_not_delete_final_output()
+    {
+        using var dir = new TempDir();
+        var finalPath = Path.Combine(dir.Path, "out.mp4");
+        var prep = _committer.Prepare(new OutputCommitRequest(MediaJobId.New(), finalPath, OutputConflictPolicy.Fail));
+        await File.WriteAllTextAsync(prep.TemporaryOutputPath, "final-bytes");
+        var result = await _committer.CommitAsync(prep);
+
+        Assert.True(prep.Committed);
+        _committer.Cleanup(prep);
+
+        Assert.True(File.Exists(result.CommittedPath));
+        Assert.Equal("final-bytes", await File.ReadAllTextAsync(result.CommittedPath));
+    }
+
+    [Fact]
     public async Task Cleanup_removes_temp_after_cancel()
     {
         using var dir = new TempDir();
