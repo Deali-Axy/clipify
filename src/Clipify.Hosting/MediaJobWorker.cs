@@ -1,4 +1,6 @@
 using Clipify.Application.Jobs;
+using Clipify.Domain.Jobs;
+using Clipify.FFmpeg;
 using Clipify.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -47,12 +49,13 @@ public sealed class MediaJobHostingOptions
     public TimeSpan HeartbeatInterval { get; init; } = TimeSpan.FromSeconds(5);
     public TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(2);
     public int QueueCapacity { get; init; } = 256;
+    public Action<ClipifyFFmpegOptions>? ConfigureFFmpeg { get; init; }
 }
 
 public static class MediaJobHostingExtensions
 {
     /// <summary>
-    /// Registers Application job services, EF SQLite persistence, and the media job worker.
+    /// Registers Application job services, EF SQLite persistence, FFmpeg handlers, and the media job worker.
     /// Callers must also call <see cref="Persistence.PersistenceServiceCollectionExtensions.MigrateClipifyDatabaseAsync"/> before starting.
     /// </summary>
     public static IServiceCollection AddClipifyMediaJobs(
@@ -66,11 +69,13 @@ public static class MediaJobHostingExtensions
             throw new ArgumentOutOfRangeException(nameof(options.MaxConcurrency), "MaxConcurrency must be 1 or 2.");
         }
 
-        services.AddClipifyPersistence(new Persistence.ClipifyPersistenceOptions
+        services.AddClipifyPersistence(new ClipifyPersistenceOptions
         {
             DatabasePath = options.DatabasePath,
             LockDirectory = options.LockDirectory,
         });
+
+        services.AddClipifyFFmpeg(options.ConfigureFFmpeg);
 
         services.AddSingleton(new MediaJobWorkerOptions
         {
@@ -84,8 +89,12 @@ public static class MediaJobHostingExtensions
         services.AddSingleton<IMediaJobQueue>(_ => new ChannelMediaJobQueue(options.QueueCapacity));
         services.AddSingleton<IMediaJobChangePublisher, ChannelMediaJobChangePublisher>();
         services.AddSingleton<IJobCancellationRegistry, InMemoryJobCancellationRegistry>();
-        services.AddSingleton<IMediaJobHandler<Domain.Jobs.FakeDelayJobDefinition>, FakeDelayJobHandler>();
-        services.AddSingleton<IMediaJobHandlerDispatcher, MediaJobHandlerDispatcher>();
+        services.AddSingleton<IMediaJobHandler<FakeDelayJobDefinition>, FakeDelayJobHandler>();
+        services.AddSingleton<IMediaJobHandlerDispatcher>(sp => new MediaJobHandlerDispatcher(
+            sp.GetRequiredService<IMediaJobHandler<FakeDelayJobDefinition>>(),
+            sp.GetRequiredService<IMediaJobHandler<TrimMediaJobDefinition>>(),
+            sp.GetRequiredService<IMediaJobHandler<ExtractAudioJobDefinition>>(),
+            sp.GetRequiredService<IMediaJobHandler<ThumbnailJobDefinition>>()));
         services.AddSingleton<IMediaJobService, MediaJobService>();
         services.AddSingleton<MediaJobExecutor>();
         services.AddHostedService<MediaJobWorker>();

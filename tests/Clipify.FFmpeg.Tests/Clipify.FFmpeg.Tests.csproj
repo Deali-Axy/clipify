@@ -12,6 +12,9 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,10 +23,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Clipify.FFmpeg\Clipify.FFmpeg.csproj" />
+    <ProjectReference Include="..\..\src\Clipify.Hosting\Clipify.Hosting.csproj" />
     <ProjectReference Include="..\Clipify.FFmpeg.ProcessHost\Clipify.FFmpeg.ProcessHost.csproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <OutputItemType>Content</OutputItemType>
-      <!-- Ensure ProcessHost builds before tests and lands next to the test assembly. -->
     </ProjectReference>
   </ItemGroup>
 
