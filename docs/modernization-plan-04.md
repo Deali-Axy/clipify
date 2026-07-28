@@ -99,6 +99,7 @@ dotnet test Clipify.sln -c Release --no-build --no-restore
 6. **时间戳**：`FormatTimestamp` 使用总小时数，覆盖 >24h。
 7. **取消 E2E**：快照本次 ffmpeg PID 并断言退出；ProcessHost 回传 parent/child PID。
 8. **提交边界闭合（二次复核）**：`MediaJobExecutionContext.MarkOutputCommitted()`；Executor 在已提交时强制 `Succeeded`（含从 `Canceling`）；允许 `Canceling → Succeeded`；Barrier 竞态测试覆盖 Commit 前后取消与提交后异常。
+9. **提交后元数据幂等**：`PostCommitFinalizer` 在重试循环外创建稳定 ArtifactId；进度与 Artifact 分开重试；`AddArtifactAsync` 按 ArtifactId 幂等；永久元数据失败时写入可查询的 `PostCommitWarning`。
 
 ## 下一轮
 

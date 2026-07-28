@@ -438,9 +438,18 @@ public sealed class EfMediaJobStore : IMediaJobStore
 
     public async ValueTask AddArtifactAsync(MediaArtifact artifact, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(artifact);
         await SqliteBusyRetry.ExecuteAsync(async ct =>
         {
             await using var db = await _dbContextFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            var exists = await db.MediaArtifacts.AsNoTracking()
+                .AnyAsync(a => a.Id == artifact.ArtifactId, ct)
+                .ConfigureAwait(false);
+            if (exists)
+            {
+                return;
+            }
+
             db.MediaArtifacts.Add(MediaJobMapper.ToEntity(artifact));
             await db.SaveChangesAsync(ct).ConfigureAwait(false);
         }, cancellationToken: cancellationToken).ConfigureAwait(false);

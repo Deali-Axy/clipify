@@ -45,4 +45,16 @@ public sealed class MediaJobExecutionContext
     public bool OutputCommitted => Volatile.Read(ref _outputCommitted) != 0;
 
     public void MarkOutputCommitted() => Interlocked.Exchange(ref _outputCommitted, 1);
+
+    /// <summary>
+    /// Optional warning persisted when the job succeeds after a post-commit metadata repair gap
+    /// (for example artifact or final progress could not be written).
+    /// </summary>
+    public string? PostCommitWarning { get; private set; }
+
+    public void RecordPostCommitWarning(string warning)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(warning);
+        PostCommitWarning = warning;
+    }
 }

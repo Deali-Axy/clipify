@@ -204,40 +204,40 @@ public abstract class MediaJobHandlerBase
         string? contentType,
         TimeSpan? total)
     {
-        const int maxAttempts = 3;
-        Exception? last = null;
-        for (var attempt = 1; attempt <= maxAttempts; attempt++)
-        {
-            try
-            {
-                await ReportAsync(context, "commit", 0.95, total, total, CancellationToken.None)
-                    .ConfigureAwait(false);
-                await CompleteArtifactAsync(
-                        context,
-                        artifactKind,
-                        committedPath,
-                        sizeBytes,
-                        contentType,
-                        CancellationToken.None)
-                    .ConfigureAwait(false);
-                await ReportAsync(context, "completed", 1, total, total, CancellationToken.None)
-                    .ConfigureAwait(false);
-                return;
-            }
-            catch (Exception ex) when (attempt < maxAttempts)
-            {
-                last = ex;
-                _logger.LogWarning(
-                    ex,
-                    "Post-commit metadata write failed for job {JobId} (attempt {Attempt}/{Max}).",
-                    context.Snapshot.Id,
-                    attempt,
-                    maxAttempts);
-                await Task.Delay(TimeSpan.FromMilliseconds(50 * attempt)).ConfigureAwait(false);
-            }
-        }
+        // Create the artifact once with a stable ID so retries never insert duplicates.
+        var artifact = MediaArtifact.Create(
+            context.Snapshot.Id,
+            artifactKind,
+            committedPath,
+            _timeProvider.GetUtcNow(),
+            sizeBytes: sizeBytes,
+            contentType: contentType);
 
-        throw last ?? new InvalidOperationException("Post-commit metadata write failed.");
+        await PostCommitFinalizer.FinalizeAsync(
+                context,
+                artifact,
+                total,
+                _timeProvider,
+                onRetry: (ex, operation, attempt, max) =>
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Post-commit {Operation} failed for job {JobId} (attempt {Attempt}/{Max}).",
+                        operation,
+                        context.Snapshot.Id,
+                        attempt,
+                        max);
+                    return Task.CompletedTask;
+                })
+            .ConfigureAwait(false);
+
+        if (context.PostCommitWarning is not null)
+        {
+            _logger.LogWarning(
+                "Job {JobId} succeeded with post-commit warning: {Warning}",
+                context.Snapshot.Id,
+                context.PostCommitWarning);
+        }
     }
 
     private async Task ReportProgressSnapshotAsync(
@@ -291,26 +291,6 @@ public abstract class MediaJobHandlerBase
                     fraction: fraction,
                     processedDuration: processed,
                     totalDuration: total),
-                cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    private async Task CompleteArtifactAsync(
-        MediaJobExecutionContext context,
-        string kind,
-        string path,
-        long? sizeBytes,
-        string? contentType,
-        CancellationToken cancellationToken)
-    {
-        await context.AddArtifactAsync(
-                MediaArtifact.Create(
-                    context.Snapshot.Id,
-                    kind,
-                    path,
-                    _timeProvider.GetUtcNow(),
-                    sizeBytes: sizeBytes,
-                    contentType: contentType),
                 cancellationToken)
             .ConfigureAwait(false);
     }

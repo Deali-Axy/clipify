@@ -84,19 +84,14 @@ public sealed class FakeDelayJobHandler : IMediaJobHandler<FakeDelayJobDefinitio
         context.MarkOutputCommitted();
 
         var done = _timeProvider.GetUtcNow();
-        await context.ReportProgressAsync(
-                MediaJobProgress.Create("completed", done, fraction: 1, message: definition.Label),
-                CancellationToken.None)
-            .ConfigureAwait(false);
+        var artifact = MediaArtifact.Create(
+            context.Snapshot.Id,
+            kind: "fake_output",
+            path: $"fake://{context.Snapshot.Id}/{definition.Label ?? "output"}",
+            createdAt: done,
+            sizeBytes: 0);
 
-        await context.AddArtifactAsync(
-                MediaArtifact.Create(
-                    context.Snapshot.Id,
-                    kind: "fake_output",
-                    path: $"fake://{context.Snapshot.Id}/{definition.Label ?? "output"}",
-                    createdAt: done,
-                    sizeBytes: 0),
-                CancellationToken.None)
+        await PostCommitFinalizer.FinalizeAsync(context, artifact, totalDuration: null, _timeProvider)
             .ConfigureAwait(false);
     }
 }

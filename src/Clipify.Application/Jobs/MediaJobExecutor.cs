@@ -152,7 +152,8 @@ public sealed class MediaJobExecutor
                     if (context.OutputCommitted)
                     {
                         // Irreversible output exists — cancel requests must not win.
-                        await CompleteAsSucceededAsync(claimed.Id, completedAt).ConfigureAwait(false);
+                        await CompleteAsSucceededAsync(claimed.Id, completedAt, context.PostCommitWarning)
+                            .ConfigureAwait(false);
                     }
                     else if (await _store.IsCancelRequestedAsync(claimed.Id, CancellationToken.None).ConfigureAwait(false)
                         || linked.IsCancellationRequested)
@@ -173,7 +174,11 @@ public sealed class MediaJobExecutor
             {
                 if (context?.OutputCommitted == true)
                 {
-                    await CompleteAsSucceededAsync(claimed.Id, _timeProvider.GetUtcNow()).ConfigureAwait(false);
+                    await CompleteAsSucceededAsync(
+                            claimed.Id,
+                            _timeProvider.GetUtcNow(),
+                            context.PostCommitWarning)
+                        .ConfigureAwait(false);
                 }
                 else
                 {
@@ -200,7 +205,10 @@ public sealed class MediaJobExecutor
                 if (context?.OutputCommitted == true)
                 {
                     // Output is already on disk; converge to Succeeded despite metadata failure.
-                    await CompleteAsSucceededAsync(claimed.Id, _timeProvider.GetUtcNow()).ConfigureAwait(false);
+                    var warning = context.PostCommitWarning
+                        ?? $"Output committed but post-commit metadata failed: {ex.Message}";
+                    await CompleteAsSucceededAsync(claimed.Id, _timeProvider.GetUtcNow(), warning)
+                        .ConfigureAwait(false);
                 }
                 else
                 {
@@ -248,7 +256,10 @@ public sealed class MediaJobExecutor
         }
     }
 
-    private async Task CompleteAsSucceededAsync(MediaJobId jobId, DateTimeOffset at)
+    private async Task CompleteAsSucceededAsync(
+        MediaJobId jobId,
+        DateTimeOffset at,
+        string? postCommitWarning = null)
     {
         var current = await _store.GetAsync(jobId, CancellationToken.None).ConfigureAwait(false);
         if (current is null || MediaJobStateTransitions.IsTerminal(current.State))
@@ -266,6 +277,8 @@ public sealed class MediaJobExecutor
                 current.State,
                 MediaJobState.Succeeded,
                 at,
+                errorCode: postCommitWarning is null ? null : "PostCommitWarning",
+                errorMessage: postCommitWarning,
                 completedAt: at,
                 clearLeaseOwner: _options.LeaseOwner,
                 cancellationToken: CancellationToken.None)
@@ -274,7 +287,12 @@ public sealed class MediaJobExecutor
         if (succeeded)
         {
             await _changes.PublishAsync(
-                    new MediaJobChange(jobId, MediaJobState.Succeeded, at),
+                    new MediaJobChange(
+                        jobId,
+                        MediaJobState.Succeeded,
+                        at,
+                        ErrorCode: postCommitWarning is null ? null : "PostCommitWarning",
+                        ErrorMessage: postCommitWarning),
                     CancellationToken.None)
                 .ConfigureAwait(false);
         }
