@@ -1,7 +1,11 @@
 using System.Text.Json;
 using Clipify.Application.Abstractions;
+using Clipify.Application.Jobs;
 using Clipify.Cli.Parsing;
 using Clipify.Domain.Jobs;
+using Clipify.Hosting;
+using Clipify.Persistence;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Clipify.Cli.Tests;
 
@@ -106,11 +110,28 @@ public class HelpAndValidationTests
         using var data = new TempDataDirectory();
         using var writers = new CapturingWriters();
         var code = await CliTestHost.RunAsync(["trim", "in.mp4"], data, writers);
-        Assert.NotEqual(0, code);
+        Assert.Equal(CliExitCode.ValidationError, code);
         Assert.True(
             writers.StdErr.Contains("start", StringComparison.OrdinalIgnoreCase)
-            || writers.StdErr.Contains("required", StringComparison.OrdinalIgnoreCase)
-            || writers.StdOut.Length >= 0);
+            || writers.StdErr.Contains("Required", StringComparison.OrdinalIgnoreCase)
+            || writers.StdOut.Contains("Validation", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Json_missing_required_options_returns_structured_validation_error()
+    {
+        using var data = new TempDataDirectory();
+        using var writers = new CapturingWriters();
+        var code = await CliTestHost.RunAsync(["trim", "in.mp4", "--json"], data, writers);
+        Assert.Equal(CliExitCode.ValidationError, code);
+
+        var stdout = writers.StdOut.Trim();
+        Assert.StartsWith("{", stdout, StringComparison.Ordinal);
+        using var doc = JsonDocument.Parse(stdout);
+        Assert.False(doc.RootElement.GetProperty("ok").GetBoolean());
+        Assert.Equal("Validation", doc.RootElement.GetProperty("error").GetProperty("code").GetString());
+        Assert.DoesNotContain("Usage:", writers.StdOut, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("用法:", writers.StdOut, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -132,6 +153,22 @@ public class HelpAndValidationTests
         using var writers = new CapturingWriters();
         var code = await CliTestHost.RunAsync(["jobs", "get", "not-a-guid"], data, writers);
         Assert.Equal(CliExitCode.ValidationError, code);
+    }
+
+    [Fact]
+    public async Task Jobs_wait_missing_job_returns_not_found_json()
+    {
+        using var data = new TempDataDirectory();
+        using var writers = new CapturingWriters();
+        var missingId = Guid.NewGuid().ToString("N");
+        var code = await CliTestHost.RunAsync(["jobs", "wait", missingId, "--json"], data, writers);
+        Assert.Equal(CliExitCode.FileError, code);
+
+        var stdout = writers.StdOut.Trim();
+        Assert.False(string.IsNullOrWhiteSpace(stdout));
+        using var doc = JsonDocument.Parse(stdout);
+        Assert.False(doc.RootElement.GetProperty("ok").GetBoolean());
+        Assert.Equal("NotFound", doc.RootElement.GetProperty("error").GetProperty("code").GetString());
     }
 }
 
@@ -200,6 +237,26 @@ public class DoctorCommandTests
         Assert.Contains(
             doctor.GetProperty("checks").EnumerateArray().Select(c => c.GetProperty("name").GetString()),
             name => name is "ffmpeg" or "ffprobe" or "sqlite" or "data_directory");
+    }
+
+    [Fact]
+    public async Task Doctor_reports_sqlite_failure_when_database_is_corrupt()
+    {
+        using var data = new TempDataDirectory();
+        Directory.CreateDirectory(data.Path);
+        await File.WriteAllTextAsync(Path.Combine(data.Path, "jobs.db"), "this is not a sqlite database");
+
+        using var writers = new CapturingWriters();
+        var code = await CliTestHost.RunAsync(["doctor", "--json", "--data-dir", data.Path], data, writers);
+        Assert.NotEqual(CliExitCode.Success, code);
+
+        var stdout = writers.StdOut.Trim();
+        Assert.False(string.IsNullOrWhiteSpace(stdout), $"stdout empty; stderr={writers.StdErr}");
+        using var doc = JsonDocument.Parse(stdout);
+        Assert.False(doc.RootElement.GetProperty("ok").GetBoolean());
+        var sqlite = doc.RootElement.GetProperty("doctor").GetProperty("checks").EnumerateArray()
+            .Single(c => c.GetProperty("name").GetString() == "sqlite");
+        Assert.False(sqlite.GetProperty("ok").GetBoolean());
     }
 }
 
@@ -320,42 +377,49 @@ public class JobsCommandTests
     }
 
     [Fact]
-    public async Task Two_cli_hosts_do_not_double_execute_same_job()
+    public async Task Two_cli_waiters_claim_preseeded_job_only_once()
     {
-        await CliTestHost.EnsureMediaFixtureAsync();
         using var data = new TempDataDirectory();
 
-        // Seed a queued job via Application host, then race two CLI waiters that share DB.
-        // Simpler approach: enqueue via one CLI trim while another process only observes —
-        // use two concurrent CliApp runs sharing data dir: one executes trim, one lists.
-        // Stronger check: submit fake_delay is not exposed; use thumbnail and dual wait after enqueue via first host internals.
-
-        using var writersA = new CapturingWriters();
-        using var writersB = new CapturingWriters();
-
-        var output = Path.Combine(data.Path, "race.mp4");
-        var args = new[]
+        // Seed a Queued job without starting any Worker so two CLI processes race to Claim.
+        var seedOptions = new ClipifyHostOptions
         {
-            "trim", CliTestHost.SourceVideo,
-            "--start", "0", "--end", "1000",
-            "--output", output, "--json",
+            DataDirectory = data.Path,
+            SuppressConsoleLogging = true,
+            EnableFileLogging = false,
+            PollInterval = TimeSpan.FromMilliseconds(100),
         };
+        using (var seedHost = ClipifyHostFactory.BuildForDiagnostics(seedOptions))
+        {
+            await seedHost.Services.MigrateClipifyDatabaseAsync();
+            var jobs = seedHost.Services.GetRequiredService<IMediaJobService>();
+            var jobId = await jobs.EnqueueAsync(new FakeDelayJobDefinition
+            {
+                Delay = TimeSpan.FromMilliseconds(600),
+                Label = "cli-claim-race",
+            });
 
-        var taskA = CliTestHost.RunAsync(args, data, writersA);
-        // Second CLI only lists while first runs — verifies shared SQLite doesn't break.
-        await Task.Delay(200);
-        var listCode = await CliTestHost.RunAsync(["jobs", "list", "--json"], data, writersB);
-        var codeA = await taskA;
+            using var writersA = new CapturingWriters();
+            using var writersB = new CapturingWriters();
+            var args = new[] { "jobs", "wait", jobId.Value, "--json", "--data-dir", data.Path };
+            var taskA = CliTestHost.RunAsync(args, data, writersA);
+            var taskB = CliTestHost.RunAsync(args, data, writersB);
+            var codes = await Task.WhenAll(taskA, taskB);
 
-        Assert.Equal(CliExitCode.Success, codeA);
-        Assert.Equal(CliExitCode.Success, listCode);
-        Assert.True(File.Exists(output));
+            Assert.Equal(CliExitCode.Success, codes[0]);
+            Assert.Equal(CliExitCode.Success, codes[1]);
 
-        using var listDoc = JsonDocument.Parse(writersB.StdOut.Trim());
-        // At most one succeeded trim job for this output should exist; never duplicated execution of same id.
-        var jobs = listDoc.RootElement.GetProperty("jobs").EnumerateArray().ToArray();
-        var ids = jobs.Select(j => j.GetProperty("job_id").GetString()).Distinct().ToArray();
-        Assert.Equal(ids.Length, jobs.Length);
+            using var docA = JsonDocument.Parse(writersA.StdOut.Trim());
+            using var docB = JsonDocument.Parse(writersB.StdOut.Trim());
+            Assert.Equal("succeeded", docA.RootElement.GetProperty("job").GetProperty("state").GetString());
+            Assert.Equal("succeeded", docB.RootElement.GetProperty("job").GetProperty("state").GetString());
+
+            var snapshot = await jobs.GetAsync(jobId);
+            Assert.NotNull(snapshot);
+            Assert.Equal(MediaJobState.Succeeded, snapshot!.State);
+            Assert.Single(snapshot.Artifacts);
+            Assert.Equal("fake_output", snapshot.Artifacts[0].Kind);
+        }
     }
 }
 

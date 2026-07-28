@@ -14,7 +14,7 @@ internal static class CommandHandlers
 {
     public static async Task<int> DoctorAsync(CliCommandContext ctx, CancellationToken ct)
     {
-        await ctx.EnsureHostStartedAsync(ct).ConfigureAwait(false);
+        ctx.EnsureDiagnosticsHost();
         var doctor = ctx.Services.GetRequiredService<IClipifyDoctor>();
         var report = await doctor.RunAsync(ct).ConfigureAwait(false);
         var dto = CliDtoMapper.FromDoctor(report);
@@ -48,7 +48,6 @@ internal static class CommandHandlers
                 Ok: false,
                 Command: "probe",
                 Error: CliDtoMapper.FromError(error)));
-            ctx.Renderer.WriteError($"{error.Code}: {error.Message}");
             return ExitCodeMapper.FromError(error);
         }
 
@@ -264,6 +263,14 @@ internal static class CommandHandlers
                 Job: CliDtoMapper.FromSnapshot(snapshot)));
             return ExitCodeMapper.FromJobSnapshot(snapshot);
         }
+        catch (ClipifyException ex) when (ex.Code == ClipifyErrorCode.NotFound)
+        {
+            ctx.Renderer.WriteResult(new CliCommandResultDto(
+                Ok: false,
+                Command: "jobs wait",
+                Error: CliDtoMapper.FromError(ex.ToError())));
+            return ExitCodeMapper.FromError(ex.ToError());
+        }
         catch (OperationCanceledException)
         {
             var snapshot = await ctx.Jobs.GetAsync(jobId, CancellationToken.None).ConfigureAwait(false);
@@ -440,7 +447,6 @@ internal static class CommandHandlers
             Ok: false,
             Command: command,
             Error: CliDtoMapper.FromError(error)));
-        ctx.Renderer.WriteError($"{error.Code}: {error.Message}");
         return ExitCodeMapper.FromError(error);
     }
 }

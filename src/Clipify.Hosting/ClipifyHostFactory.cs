@@ -85,6 +85,12 @@ public static class ClipifyHostFactory
             throw;
         }
     }
+
+    /// <summary>
+    /// Builds DI without migrating or starting the Worker. Used by <c>doctor</c> so SQLite
+    /// failures surface as diagnostic checks instead of aborting the command.
+    /// </summary>
+    public static IHost BuildForDiagnostics(ClipifyHostOptions options) => Build(options);
 }
 
 /// <summary>

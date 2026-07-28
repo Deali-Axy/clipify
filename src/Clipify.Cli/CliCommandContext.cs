@@ -2,6 +2,7 @@ using Clipify.Application.Jobs;
 using Clipify.Cli.Output;
 using Clipify.Domain.Jobs;
 using Clipify.Hosting;
+using Clipify.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -26,6 +27,7 @@ public sealed class CliCommandContext : IAsyncDisposable
     private int _interruptCount;
     private MediaJobId? _activeJobId;
     private IHost? _host;
+    private bool _workerStarted;
     private bool _cancelHooked;
 
     public required ICliRenderer Renderer { get; init; }
@@ -36,7 +38,7 @@ public sealed class CliCommandContext : IAsyncDisposable
     public CancellationToken ProcessToken => _processCts.Token;
 
     public IServiceProvider Services =>
-        _host?.Services ?? throw new InvalidOperationException("Host has not been started.");
+        _host?.Services ?? throw new InvalidOperationException("Host has not been created.");
 
     public IMediaJobService Jobs => Services.GetRequiredService<IMediaJobService>();
 
@@ -55,29 +57,55 @@ public sealed class CliCommandContext : IAsyncDisposable
 
     public void ClearActiveJob() => _activeJobId = null;
 
+    private ClipifyHostOptions CreateHostOptions() => new()
+    {
+        DataDirectory = DataDirectory ?? Runtime.DataDirectory,
+        SuppressConsoleLogging = OutputMode is OutputMode.Json or OutputMode.Jsonl,
+        EnableFileLogging = Runtime.EnableFileLogging,
+        PollInterval = Runtime.PollInterval ?? TimeSpan.FromSeconds(2),
+        ConfigureFFmpeg = Runtime.ConfigureFFmpeg,
+    };
+
     /// <summary>
-    /// Builds host, migrates DB, starts Worker. Must be called before Application services are used.
+    /// Builds DI without migrating or starting the Worker (for <c>doctor</c>).
     /// </summary>
-    public async Task EnsureHostStartedAsync(CancellationToken cancellationToken = default)
+    public void EnsureDiagnosticsHost()
     {
         if (_host is not null)
         {
             return;
         }
 
-        var hostOptions = new ClipifyHostOptions
+        _host = ClipifyHostFactory.BuildForDiagnostics(CreateHostOptions());
+    }
+
+    /// <summary>
+    /// Builds host, migrates DB, starts Worker. Must be called before Application services that need the job loop.
+    /// </summary>
+    public async Task EnsureHostStartedAsync(CancellationToken cancellationToken = default)
+    {
+        if (_workerStarted)
         {
-            DataDirectory = DataDirectory ?? Runtime.DataDirectory,
-            SuppressConsoleLogging = OutputMode is OutputMode.Json or OutputMode.Jsonl,
-            EnableFileLogging = Runtime.EnableFileLogging,
-            PollInterval = Runtime.PollInterval ?? TimeSpan.FromSeconds(2),
-            ConfigureFFmpeg = Runtime.ConfigureFFmpeg,
-        };
+            return;
+        }
 
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,
             _processCts.Token);
-        _host = await ClipifyHostFactory.StartAsync(hostOptions, linked.Token).ConfigureAwait(false);
+
+        if (_host is null)
+        {
+            _host = await ClipifyHostFactory.StartAsync(CreateHostOptions(), linked.Token)
+                .ConfigureAwait(false);
+            _workerStarted = true;
+            return;
+        }
+
+        // Diagnostics host already built — migrate and start Worker now.
+        await _host.Services.MigrateClipifyDatabaseAsync(cancellationToken: linked.Token)
+            .ConfigureAwait(false);
+        await _host.StartAsync(linked.Token).ConfigureAwait(false);
+        _workerStarted = true;
     }
 
     public async ValueTask DisposeAsync()
@@ -92,7 +120,10 @@ public sealed class CliCommandContext : IAsyncDisposable
         {
             try
             {
-                await _host.StopAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                if (_workerStarted)
+                {
+                    await _host.StopAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                }
             }
             catch
             {
@@ -101,6 +132,7 @@ public sealed class CliCommandContext : IAsyncDisposable
 
             _host.Dispose();
             _host = null;
+            _workerStarted = false;
         }
 
         _processCts.Dispose();

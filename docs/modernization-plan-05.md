@@ -67,7 +67,7 @@ clipify jobs retry <job-id>
 - **CLI**：`System.CommandLine` 命令树；`ExitCodeMapper`；Text/JSON/JSONL Renderer；边界解析（时间/格式/冲突策略/JobId）；`JobWaiter`；Ctrl+C 取消钩子
 - **命令**：doctor、probe、trim、extract-audio、thumbnail、jobs list/get/wait/cancel/retry
 - **Converter 审计**：未迁移交互式批量转换、原始 FFmpeg 拼接、自动覆盖与硬件编码；旧项目保留至阶段 9
-- **测试**：41 个 CLI 测试（解析、Exit Code、输出隔离、媒体 E2E、中文路径、jobs 跨进程 SQLite、双 Host 不重复执行、cancel）
+- **测试**：44 个 CLI 测试（解析、Exit Code、输出隔离、媒体 E2E、中文路径、jobs 跨进程 SQLite、双 CLI Claim 竞争、cancel、损坏 DB doctor）
 
 ## 验收清单
 
@@ -97,9 +97,20 @@ dotnet run --project src/Clipify.Cli -- doctor --json
 
 - `ffmpeg` / `ffprobe`：**8.1.2**
 - Release build 成功（Forms 既有警告，新项目 0 warnings/errors）
-- 测试 **161** 通过（Domain 46 + Application 22 + FFmpeg 36 + Persistence 14 + Cli 41 + skeleton 2）
+- 测试 **164** 通过（Domain 46 + Application 22 + FFmpeg 36 + Persistence 14 + Cli 44 + skeleton 2）
 - `clipify doctor --json`：ok，报告数据目录、SQLite、ffmpeg/ffprobe 版本
 - 媒体命令：trim / extract-audio / thumbnail 与中文路径通过；无 `--detach`/`convert`/`merge`/`batch`
+
+## Codex 审阅修复（2026-07-28）
+
+已修复并补测：
+
+1. **[P1] JSON 参数错误**：Invoke 前拦截 `ParseResult.Errors`，按 `--json`/`--jsonl` 渲染结构化 Validation 错误并返回 Exit Code 2，不再把帮助文本写到 stdout。
+2. **[P1] doctor 与迁移解耦**：`BuildForDiagnostics` + `EnsureDiagnosticsHost` 不先迁移/启 Worker；损坏的 `jobs.db` 作为 `sqlite` 检查失败项出现在 doctor JSON 中。
+3. **[P2] jobs wait 缺失 Job**：`JobWaiter` 抛出 `ClipifyException(NotFound)`，渲染结构化结果，Exit Code 映射为 FileError(3)。
+4. **[P2] JobWaiter 收敛**：`WhenAny` 后取消并 `WhenAll` 等待两路分支结束，避免 JSONL 在 `result` 后继续写 progress。
+5. **[P2] 双 CLI Claim 竞争**：预置 Queued `fake_delay` 后两个 `jobs wait` 并发竞争；断言两次成功且仅一条 `fake_output` Artifact。
+6. **[P3]** 去掉 FailValidation/probe 失败路径上重复的 stderr `WriteError`。
 
 ## 已知问题 / 偏差
 

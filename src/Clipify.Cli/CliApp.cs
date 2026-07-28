@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Clipify.Application.Abstractions;
 using Clipify.Cli.Commands;
 using Clipify.Cli.Output;
 
@@ -40,6 +41,27 @@ public static class CliApp
 
         CliCommandContext? context = null;
 
+        CliCommandContext CreateContext(ParseResult parseResult)
+        {
+            var useJson = parseResult.GetValue(jsonOption);
+            var useJsonl = parseResult.GetValue(jsonlOption);
+            if (useJson && useJsonl)
+            {
+                throw new InvalidOperationException("Mutually exclusive output modes.");
+            }
+
+            var mode = useJsonl ? OutputMode.Jsonl : useJson ? OutputMode.Json : OutputMode.Text;
+            var dataDir = parseResult.GetValue(dataDirOption) ?? runtime.DataDirectory;
+
+            return new CliCommandContext
+            {
+                Renderer = CliRendererFactory.Create(mode, output, error),
+                OutputMode = mode,
+                Runtime = runtime,
+                DataDirectory = dataDir,
+            };
+        }
+
         async Task<CliCommandContext> GetContextAsync(ParseResult parseResult)
         {
             if (context is not null)
@@ -47,25 +69,42 @@ public static class CliApp
                 return context;
             }
 
-            var useJson = parseResult.GetValue(jsonOption);
-            var useJsonl = parseResult.GetValue(jsonlOption);
+            try
+            {
+                context = CreateContext(parseResult);
+                return context;
+            }
+            catch (InvalidOperationException)
+            {
+                error.WriteLine("error: --json and --jsonl are mutually exclusive.");
+                throw;
+            }
+        }
+
+        int RenderParseErrors(ParseResult parseResult)
+        {
+            // Prefer bound option values; fall back to raw args when binding is incomplete.
+            var useJson = parseResult.GetValue(jsonOption)
+                || args.Any(a => string.Equals(a, "--json", StringComparison.Ordinal));
+            var useJsonl = parseResult.GetValue(jsonlOption)
+                || args.Any(a => string.Equals(a, "--jsonl", StringComparison.Ordinal));
             if (useJson && useJsonl)
             {
                 error.WriteLine("error: --json and --jsonl are mutually exclusive.");
-                throw new InvalidOperationException("Mutually exclusive output modes.");
+                return CliExitCode.ValidationError;
             }
 
             var mode = useJsonl ? OutputMode.Jsonl : useJson ? OutputMode.Json : OutputMode.Text;
-            var dataDir = parseResult.GetValue(dataDirOption) ?? runtime.DataDirectory;
-
-            context = new CliCommandContext
-            {
-                Renderer = CliRendererFactory.Create(mode, output, error),
-                OutputMode = mode,
-                Runtime = runtime,
-                DataDirectory = dataDir,
-            };
-            return context;
+            var renderer = CliRendererFactory.Create(mode, output, error);
+            var commandName = parseResult.CommandResult.Command.Name;
+            var message = string.Join("; ", parseResult.Errors.Select(e => e.Message));
+            var clipifyError = ClipifyError.Validation(
+                string.IsNullOrWhiteSpace(message) ? "Invalid arguments." : message);
+            renderer.WriteResult(new CliCommandResultDto(
+                Ok: false,
+                Command: commandName,
+                Error: CliDtoMapper.FromError(clipifyError)));
+            return CliExitCode.ValidationError;
         }
 
         var doctor = new Command("doctor", "Diagnose FFmpeg, ffprobe, SQLite, and data directories.");
@@ -307,6 +346,11 @@ public static class CliApp
         root.Add(jobs);
 
         var parseResult = root.Parse(args);
+        if (parseResult.Errors.Count > 0)
+        {
+            return RenderParseErrors(parseResult);
+        }
+
         var invocation = new InvocationConfiguration
         {
             Output = output,

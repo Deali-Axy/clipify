@@ -1,3 +1,4 @@
+using Clipify.Application.Abstractions;
 using Clipify.Application.Jobs;
 using Clipify.Cli.Output;
 using Clipify.Domain.Jobs;
@@ -18,8 +19,14 @@ public static class JobWaiter
     {
         var interval = pollInterval ?? TimeSpan.FromMilliseconds(500);
 
-        var current = await jobs.GetAsync(jobId, cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException($"Job '{jobId}' was not found.");
+        var current = await jobs.GetAsync(jobId, cancellationToken).ConfigureAwait(false);
+        if (current is null)
+        {
+            throw new ClipifyException(
+                ClipifyErrorCode.NotFound,
+                $"Job not found: {jobId.Value}");
+        }
+
         if (current.IsTerminal)
         {
             return current;
@@ -32,6 +39,20 @@ public static class JobWaiter
         var completed = await Task.WhenAny(watchTask, pollTask).ConfigureAwait(false);
         linked.Cancel();
 
+        // Wait for the losing branch to stop so it cannot emit progress after the final result
+        // and so its exceptions are observed.
+        try
+        {
+            await Task.WhenAll(watchTask, pollTask).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+            // Losing branch may fail after cancel; the winner's result is authoritative.
+        }
+
         try
         {
             return await completed.ConfigureAwait(false);
@@ -42,7 +63,6 @@ public static class JobWaiter
         }
         catch
         {
-            // If the winning task failed for a non-cancel reason, try the other / final read.
             var snapshot = await jobs.GetAsync(jobId, CancellationToken.None).ConfigureAwait(false);
             if (snapshot?.IsTerminal == true)
             {
