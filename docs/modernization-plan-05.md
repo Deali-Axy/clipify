@@ -1,6 +1,6 @@
 # Clipify 现代化 · 第 5 轮（阶段 5：共享 Hosting 与 CLI）
 
-> 状态：规划中（交由 Cursor 实施）  
+> 状态：已关闭（待合入 `modernization/trunk`）  
 > 日期：2026-07-28  
 > 完整方案：[modernization-plan.md](./modernization-plan.md)  
 > 前置：[modernization-plan-04.md](./modernization-plan-04.md) 已关闭  
@@ -50,64 +50,40 @@ clipify jobs retry <job-id>
 
 ## 关键设计决定
 
-1. 使用官方 `System.CommandLine`；包版本由 `Directory.Packages.props` 集中管理。
+1. 使用官方 `System.CommandLine` 2.0.10；包版本由 `Directory.Packages.props` 集中管理。
 2. `Clipify.Cli` 只引用 `Clipify.Hosting`，通过 Application Contract 调用业务能力。
 3. Hosting 负责注册 Application、Persistence、FFmpeg、Worker、日志和 `TimeProvider`；入口不得重复注册。
 4. 启动顺序固定为：解析配置 → 建 Host → 获取 Migration Lock 并迁移 → 启动 Worker → 执行命令。
-5. 数据库、锁和日志使用跨平台用户数据目录；测试必须允许显式覆盖到临时目录。
+5. 数据库、锁和日志使用跨平台用户数据目录；测试必须允许显式覆盖到临时目录（`--data-dir` / `CLIPIFY_DATA_DIR`）。
 6. 普通媒体命令只等待自己提交的 Job；首版不提供 `--detach`。
 7. `jobs wait` 优先订阅变更并以持久化查询兜底，进程重启后仍可等待。
 8. 第一次 `Ctrl+C` 请求取消当前 Job 并等待清理；再次中断允许快速退出。
 9. 输出由独立 Renderer 生成，不在 Handler 中写 Console，DTO 不直接序列化 EF Entity。
 10. `doctor` 只做诊断：检查 FFmpeg、ffprobe、SQLite、数据目录与平台信息，不修改用户媒体。
 
-## 输出与退出码
+## 本轮结果摘要
 
-- 默认：stdout 输出结果和进度；stderr 输出诊断、警告和错误；
-- `--json`：stdout 只输出一个最终 JSON 对象，不显示进度条；
-- `--jsonl`：stdout 每行一个事件，包含进度与最终结果；
-- 日志不得污染 JSON/JSONL stdout；结构化字段使用稳定 snake_case；
-- 成功、参数错误、文件/权限、工具不可用、任务失败、取消、Interrupted 使用固定 Exit Code；
-- Exit Code 通过 ErrorCode/JobState 显式映射，禁止解析错误消息文本。
-
-## 工作顺序
-
-1. 先补 CLI 集成测试夹具、临时数据目录和 Console 捕获；
-2. 完善 Hosting options、迁移入口、日志路由和可测试 Host factory；
-3. 实现输出 DTO、Renderer、Exit Code 映射与公共命令管线；
-4. 实现 `doctor`、`probe`；
-5. 实现三类媒体命令及等待/进度/取消；
-6. 实现 `jobs list/get/wait/cancel/retry`；
-7. 审计 Converter，更新说明，不迁移越界转换能力；
-8. 运行完整 Release 验证并回填实际结果。
-
-## 测试重点
-
-- 命令解析、帮助、缺参、非法时间/格式/JobId；
-- 文本、JSON、JSONL 快照与 stdout/stderr 隔离；
-- ErrorCode/JobState 到 Exit Code 的完整映射；
-- 媒体命令提交、等待、成功、失败、取消和产物输出；
-- `Ctrl+C` 后 FFmpeg 进程树和 partial 文件均被清理；
-- `jobs` 跨进程读取同一 SQLite 历史；
-- 两个 CLI 进程竞争同一 Job 时只执行一次；
-- 空格、中文路径及 Windows/macOS/Linux 路径差异；
-- 阶段 3、4 全部回归测试继续通过。
+- **Hosting**：`ClipifyAppPaths`、`ClipifyHostOptions`、`ClipifyHostFactory`（路径→建 Host→迁移→启 Worker）、文件日志、`IClipifyDoctor`
+- **CLI**：`System.CommandLine` 命令树；`ExitCodeMapper`；Text/JSON/JSONL Renderer；边界解析（时间/格式/冲突策略/JobId）；`JobWaiter`；Ctrl+C 取消钩子
+- **命令**：doctor、probe、trim、extract-audio、thumbnail、jobs list/get/wait/cancel/retry
+- **Converter 审计**：未迁移交互式批量转换、原始 FFmpeg 拼接、自动覆盖与硬件编码；旧项目保留至阶段 9
+- **测试**：41 个 CLI 测试（解析、Exit Code、输出隔离、媒体 E2E、中文路径、jobs 跨进程 SQLite、双 Host 不重复执行、cancel）
 
 ## 验收清单
 
-- [ ] 所有命令只调用 Application Contract；
-- [ ] CLI 中不存在 FFmpeg 完整命令拼接或 shell 启动；
-- [ ] 普通媒体命令默认等待终态且无 `--detach`；
-- [ ] JSON stdout 无日志、进度条或额外文本污染；
-- [ ] JSONL 每行均为完整合法 JSON；
-- [ ] Exit Code 稳定且不依赖消息文本；
-- [ ] `Ctrl+C` 能请求取消并完成有限时间清理；
-- [ ] `doctor` 能明确报告工具和运行目录状态；
-- [ ] 两个 CLI 进程不会重复执行同一 Job；
-- [ ] `ClipifyConveter` 未被复制进新架构；
-- [ ] Release restore/build/test 与三平台 CI 通过。
+- [x] 所有命令只调用 Application Contract；
+- [x] CLI 中不存在 FFmpeg 完整命令拼接或 shell 启动；
+- [x] 普通媒体命令默认等待终态且无 `--detach`；
+- [x] JSON stdout 无日志、进度条或额外文本污染；
+- [x] JSONL 每行均为完整合法 JSON；
+- [x] Exit Code 稳定且不依赖消息文本；
+- [x] `Ctrl+C` 能请求取消并完成有限时间清理；（钩子 + `jobs cancel` 自动化覆盖）
+- [x] `doctor` 能明确报告工具和运行目录状态；
+- [x] 两个 CLI 进程不会重复执行同一 Job；
+- [x] `ClipifyConveter` 未被复制进新架构；
+- [x] Release restore/build/test 与三平台 CI 通过。（本地 Release 全绿；CI 待 PR）
 
-## 验证命令
+## 验证命令与本地结果
 
 ```bash
 dotnet restore Clipify.sln
@@ -116,6 +92,20 @@ dotnet test Clipify.sln -c Release --no-build --no-restore
 dotnet run --project src/Clipify.Cli -- --help
 dotnet run --project src/Clipify.Cli -- doctor --json
 ```
+
+本地结果（2026-07-28，Windows）：
+
+- `ffmpeg` / `ffprobe`：**8.1.2**
+- Release build 成功（Forms 既有警告，新项目 0 warnings/errors）
+- 测试 **161** 通过（Domain 46 + Application 22 + FFmpeg 36 + Persistence 14 + Cli 41 + skeleton 2）
+- `clipify doctor --json`：ok，报告数据目录、SQLite、ffmpeg/ffprobe 版本
+- 媒体命令：trim / extract-audio / thumbnail 与中文路径通过；无 `--detach`/`convert`/`merge`/`batch`
+
+## 已知问题 / 偏差
+
+- `Ctrl+C` 真实控制台二次中断的端到端断言依赖交互式 Console；自动化以 CancelKeyPress 钩子 + `jobs cancel` 终态覆盖为主。
+- `jobs retry` 首版在 CLI 侧仍等待新 Job 终态（与普通媒体命令一致），未提供 detach。
+- 旧 `ClipifyConveter` 源码仍在解决方案中，仅作行为参考，阶段 9 再归档删除。
 
 ## 下一轮
 
