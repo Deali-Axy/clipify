@@ -457,7 +457,7 @@ public class JobsCommandTests
         Assert.False(string.IsNullOrWhiteSpace(stdout), $"stdout empty; stderr={writers.StdErr}");
         using var doc = JsonDocument.Parse(stdout);
         Assert.False(doc.RootElement.GetProperty("ok").GetBoolean());
-        Assert.Equal("list", doc.RootElement.GetProperty("command").GetString());
+        Assert.Equal("jobs list", doc.RootElement.GetProperty("command").GetString());
         Assert.Equal("Internal", doc.RootElement.GetProperty("error").GetProperty("code").GetString());
     }
 
@@ -479,8 +479,54 @@ public class JobsCommandTests
         Assert.False(string.IsNullOrWhiteSpace(stdout), $"stdout empty; stderr={writers.StdErr}");
         using var doc = JsonDocument.Parse(stdout);
         Assert.False(doc.RootElement.GetProperty("ok").GetBoolean());
-        Assert.Equal("list", doc.RootElement.GetProperty("command").GetString());
+        Assert.Equal("jobs list", doc.RootElement.GetProperty("command").GetString());
         Assert.Equal("Internal", doc.RootElement.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Jobs_list_json_maps_pre_canceled_token_to_canceled()
+    {
+        using var data = new TempDataDirectory();
+        using var writers = new CapturingWriters();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var code = await CliTestHost.RunAsync(
+            ["jobs", "list", "--json", "--data-dir", data.Path],
+            data,
+            writers,
+            cts.Token);
+        Assert.Equal(CliExitCode.Canceled, code);
+
+        var stdout = writers.StdOut.Trim();
+        Assert.False(string.IsNullOrWhiteSpace(stdout), $"stdout empty; stderr={writers.StdErr}");
+        using var doc = JsonDocument.Parse(stdout);
+        Assert.False(doc.RootElement.GetProperty("ok").GetBoolean());
+        Assert.Equal("jobs list", doc.RootElement.GetProperty("command").GetString());
+        Assert.Equal("Canceled", doc.RootElement.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Jobs_list_success_and_startup_failure_use_same_command_name()
+    {
+        using var data = new TempDataDirectory();
+        using var okWriters = new CapturingWriters();
+        var okCode = await CliTestHost.RunAsync(["jobs", "list", "--json"], data, okWriters);
+        Assert.Equal(CliExitCode.Success, okCode);
+        using var okDoc = JsonDocument.Parse(okWriters.StdOut.Trim());
+        var successName = okDoc.RootElement.GetProperty("command").GetString();
+
+        var filePath = Path.Combine(data.Path, "blocked");
+        await File.WriteAllTextAsync(filePath, "x");
+        using var failWriters = new CapturingWriters();
+        var failCode = await CliTestHost.RunAsync(
+            ["jobs", "list", "--json", "--data-dir", filePath],
+            data,
+            failWriters);
+        Assert.Equal(CliExitCode.InternalError, failCode);
+        using var failDoc = JsonDocument.Parse(failWriters.StdOut.Trim());
+        Assert.Equal(successName, failDoc.RootElement.GetProperty("command").GetString());
+        Assert.Equal("jobs list", successName);
     }
 
     [Fact]

@@ -67,7 +67,7 @@ clipify jobs retry <job-id>
 - **CLI**：`System.CommandLine` 命令树；`ExitCodeMapper`；Text/JSON/JSONL Renderer；边界解析（时间/格式/冲突策略/JobId）；`JobWaiter`；Ctrl+C 取消钩子
 - **命令**：doctor、probe、trim、extract-audio、thumbnail、jobs list/get/wait/cancel/retry
 - **Converter 审计**：未迁移交互式批量转换、原始 FFmpeg 拼接、自动覆盖与硬件编码；旧项目保留至阶段 9
-- **测试**：51 个 CLI 测试（含真实双进程 Claim、无效 data-dir doctor、普通命令 Host 启动失败 JSON、时间溢出、文本日志隔离）
+- **测试**：53 个 CLI 测试（含真实双进程 Claim、Host 启动失败/取消 JSON、嵌套命令名一致性）
 
 ## 验收清单
 
@@ -97,7 +97,7 @@ dotnet run --project src/Clipify.Cli -- doctor --json
 
 - `ffmpeg` / `ffprobe`：**8.1.2**
 - Release build 成功（Forms 既有警告，新项目 0 warnings/errors）
-- 测试 **171** 通过（Domain 46 + Application 22 + FFmpeg 36 + Persistence 14 + Cli 51 + skeleton 2）
+- 测试 **173** 通过（Domain 46 + Application 22 + FFmpeg 36 + Persistence 14 + Cli 53 + skeleton 2）
 - `clipify doctor --json`：ok，报告数据目录、SQLite、ffmpeg/ffprobe 版本
 - 媒体命令：trim / extract-audio / thumbnail 与中文路径通过；无 `--detach`/`convert`/`merge`/`batch`
 
@@ -116,6 +116,8 @@ dotnet run --project src/Clipify.Cli -- doctor --json
 9. **[P2] doctor 错误码**：顶层 `error.code` 与 Exit Code 一致（路径/SQLite→`Internal`/1；仅工具→`FfmpegUnavailable`/4）。
 10. **[P3]** 去掉 FailValidation/probe 失败路径上重复的 stderr `WriteError`。
 11. **[P1] 普通命令启动失败 JSON 契约**：顶层 catch 经 Renderer 输出 Internal JSON/JSONL；`EnsureHostStartedAsync` 预检 data-dir 并将 Host 启动异常包装为 `ClipifyException`；补 `jobs list --json` 在文件 data-dir / 损坏 DB 下的回归。
+12. **[P1] 取消映射**：`OperationCanceledException` → `Canceled`/6，不再误报 Internal。
+13. **[P2] 嵌套命令名**：`GetCanonicalCommandName` 输出稳定的 `jobs list` 等路径，成功/失败一致。
 
 ## 已知问题 / 偏差
 

@@ -96,7 +96,7 @@ public static class CliApp
 
             var mode = useJsonl ? OutputMode.Jsonl : useJson ? OutputMode.Json : OutputMode.Text;
             var renderer = CliRendererFactory.Create(mode, output, error);
-            var commandName = parseResult.CommandResult.Command.Name;
+            var commandName = GetCanonicalCommandName(parseResult);
             var message = string.Join("; ", parseResult.Errors.Select(e => e.Message));
             var clipifyError = ClipifyError.Validation(
                 string.IsNullOrWhiteSpace(message) ? "Invalid arguments." : message);
@@ -376,13 +376,29 @@ public static class CliApp
 
         int RenderUnhandledException(ParseResult failedParse, Exception ex)
         {
+            while (ex is AggregateException { InnerExceptions.Count: 1 } aggregate
+                   && aggregate.InnerException is not null)
+            {
+                ex = aggregate.InnerException;
+            }
+
             var useJson = failedParse.GetValue(jsonOption)
                 || args.Any(a => string.Equals(a, "--json", StringComparison.Ordinal));
             var useJsonl = failedParse.GetValue(jsonlOption)
                 || args.Any(a => string.Equals(a, "--jsonl", StringComparison.Ordinal));
             var mode = useJsonl ? OutputMode.Jsonl : useJson ? OutputMode.Json : OutputMode.Text;
             var renderer = context?.Renderer ?? CliRendererFactory.Create(mode, output, error);
-            var commandName = failedParse.CommandResult.Command.Name;
+            var commandName = GetCanonicalCommandName(failedParse);
+
+            if (ex is OperationCanceledException)
+            {
+                var canceled = new ClipifyError(ClipifyErrorCode.Canceled, "Command canceled.");
+                renderer.WriteResult(new CliCommandResultDto(
+                    Ok: false,
+                    Command: commandName,
+                    Error: CliDtoMapper.FromError(canceled)));
+                return CliExitCode.Canceled;
+            }
 
             if (ex is ClipifyException clipifyEx)
             {
@@ -402,5 +418,22 @@ public static class CliApp
                 Error: CliDtoMapper.FromError(internalError)));
             return CliExitCode.InternalError;
         }
+    }
+
+    /// <summary>
+    /// Builds a stable command id including parents (e.g. <c>jobs list</c>), matching CommandHandlers.
+    /// </summary>
+    internal static string GetCanonicalCommandName(ParseResult parseResult)
+    {
+        var names = new List<string>();
+        for (Command? command = parseResult.CommandResult.Command;
+             command is not null && command is not RootCommand;
+             command = command.Parents.OfType<Command>().FirstOrDefault())
+        {
+            names.Add(command.Name);
+        }
+
+        names.Reverse();
+        return names.Count == 0 ? parseResult.RootCommandResult.Command.Name : string.Join(' ', names);
     }
 }
