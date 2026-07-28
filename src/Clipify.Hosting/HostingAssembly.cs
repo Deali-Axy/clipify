@@ -1,7 +1,7 @@
 namespace Clipify.Hosting;
 
 /// <summary>
-/// Shared hosting composition root marker. Full DI wiring lands in phase 5.
+/// Shared hosting composition root marker.
 /// </summary>
 public static class HostingAssembly
 {

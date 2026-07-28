@@ -1,7 +1,7 @@
 namespace Clipify.Domain;
 
 /// <summary>
-/// Assembly marker for the domain layer. Real domain types land in phase 3.
+/// Assembly marker for the domain layer.
 /// </summary>
 public static class DomainAssembly
 {
