@@ -179,9 +179,83 @@ public class MediaJobDefinitionSerializerTests
     }
 
     [Fact]
+    public void Roundtrips_trim_media_definition()
+    {
+        var definition = new TrimMediaJobDefinition
+        {
+            InputPath = @"D:\媒体\source video.mp4",
+            OutputPath = @"D:\媒体\out clip.mp4",
+            Range = TimeRange.FromMilliseconds(1000, 5000),
+            ConflictPolicy = OutputConflictPolicy.Rename,
+            Priority = 2,
+        };
+
+        var json = MediaJobDefinitionSerializer.Serialize(definition);
+        var restored = MediaJobDefinitionSerializer.Deserialize(TrimMediaJobDefinition.Discriminator, json);
+
+        var trim = Assert.IsType<TrimMediaJobDefinition>(restored);
+        Assert.Equal(definition.InputPath, trim.InputPath);
+        Assert.Equal(definition.OutputPath, trim.OutputPath);
+        Assert.Equal(definition.Range.Start, trim.Range.Start);
+        Assert.Equal(definition.Range.End, trim.Range.End);
+        Assert.Equal(OutputConflictPolicy.Rename, trim.ConflictPolicy);
+        Assert.Equal(2, trim.Priority);
+    }
+
+    [Fact]
+    public void Roundtrips_extract_audio_definition()
+    {
+        var definition = new ExtractAudioJobDefinition
+        {
+            InputPath = "/tmp/in.mp4",
+            OutputPath = "/tmp/out.mp3",
+            Format = AudioOutputFormat.Aac,
+            ConflictPolicy = OutputConflictPolicy.Overwrite,
+        };
+
+        var json = MediaJobDefinitionSerializer.Serialize(definition);
+        var restored = MediaJobDefinitionSerializer.Deserialize(ExtractAudioJobDefinition.Discriminator, json);
+
+        var extract = Assert.IsType<ExtractAudioJobDefinition>(restored);
+        Assert.Equal(AudioOutputFormat.Aac, extract.Format);
+        Assert.Equal(OutputConflictPolicy.Overwrite, extract.ConflictPolicy);
+    }
+
+    [Fact]
+    public void Roundtrips_thumbnail_definition()
+    {
+        var definition = new ThumbnailJobDefinition
+        {
+            InputPath = "/tmp/in.mp4",
+            OutputPath = "/tmp/thumb.png",
+            At = TimeSpan.FromMilliseconds(1500),
+            Format = ThumbnailImageFormat.Png,
+            ConflictPolicy = OutputConflictPolicy.Skip,
+        };
+
+        var json = MediaJobDefinitionSerializer.Serialize(definition);
+        var restored = MediaJobDefinitionSerializer.Deserialize(ThumbnailJobDefinition.Discriminator, json);
+
+        var thumb = Assert.IsType<ThumbnailJobDefinition>(restored);
+        Assert.Equal(TimeSpan.FromMilliseconds(1500), thumb.At);
+        Assert.Equal(ThumbnailImageFormat.Png, thumb.Format);
+        Assert.Equal(OutputConflictPolicy.Skip, thumb.ConflictPolicy);
+    }
+
+    [Fact]
     public void Rejects_unknown_kind()
     {
         Assert.Throws<ArgumentException>(() =>
             MediaJobDefinitionSerializer.Deserialize("unknown_op", """{"kind":"unknown_op"}"""));
+    }
+
+    [Fact]
+    public void Allows_whitelist_kinds()
+    {
+        Assert.True(MediaJobDefinitionSerializer.IsAllowedKind(FakeDelayJobDefinition.Discriminator));
+        Assert.True(MediaJobDefinitionSerializer.IsAllowedKind(TrimMediaJobDefinition.Discriminator));
+        Assert.True(MediaJobDefinitionSerializer.IsAllowedKind(ExtractAudioJobDefinition.Discriminator));
+        Assert.True(MediaJobDefinitionSerializer.IsAllowedKind(ThumbnailJobDefinition.Discriminator));
+        Assert.False(MediaJobDefinitionSerializer.IsAllowedKind("run_ffmpeg"));
     }
 }

@@ -10,6 +10,10 @@ public enum ClipifyErrorCode
     Interrupted = 6,
     Internal = 7,
     HandlerFailed = 8,
+    FfmpegUnavailable = 9,
+    FfmpegFailed = 10,
+    MediaProbeFailed = 11,
+    OutputConflict = 12,
 }
 
 public sealed record ClipifyError(ClipifyErrorCode Code, string Message, string? Detail = null)
@@ -28,6 +32,40 @@ public sealed record ClipifyError(ClipifyErrorCode Code, string Message, string?
 
     public static ClipifyError HandlerFailed(string message, string? detail = null) =>
         new(ClipifyErrorCode.HandlerFailed, message, detail);
+
+    public static ClipifyError FfmpegUnavailable(string message, string? detail = null) =>
+        new(ClipifyErrorCode.FfmpegUnavailable, message, detail);
+
+    public static ClipifyError FfmpegFailed(string message, string? detail = null) =>
+        new(ClipifyErrorCode.FfmpegFailed, message, detail);
+
+    public static ClipifyError MediaProbeFailed(string message, string? detail = null) =>
+        new(ClipifyErrorCode.MediaProbeFailed, message, detail);
+
+    public static ClipifyError OutputConflict(string message, string? detail = null) =>
+        new(ClipifyErrorCode.OutputConflict, message, detail);
+
+    public static ClipifyError Conflict(string message, string? detail = null) =>
+        new(ClipifyErrorCode.Conflict, message, detail);
+}
+
+/// <summary>
+/// Carries a stable <see cref="ClipifyErrorCode"/> into the job executor without putting stderr into the message.
+/// </summary>
+public sealed class ClipifyException : Exception
+{
+    public ClipifyErrorCode Code { get; }
+
+    public string? Detail { get; }
+
+    public ClipifyException(ClipifyErrorCode code, string message, string? detail = null, Exception? innerException = null)
+        : base(message, innerException)
+    {
+        Code = code;
+        Detail = detail;
+    }
+
+    public ClipifyError ToError() => new(Code, Message, Detail);
 }
 
 public readonly struct Result<T>

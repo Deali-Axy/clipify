@@ -5,10 +5,20 @@ namespace Clipify.Application.Jobs;
 public sealed class MediaJobHandlerDispatcher : IMediaJobHandlerDispatcher
 {
     private readonly IMediaJobHandler<FakeDelayJobDefinition> _fakeDelayHandler;
+    private readonly IMediaJobHandler<TrimMediaJobDefinition>? _trimHandler;
+    private readonly IMediaJobHandler<ExtractAudioJobDefinition>? _extractAudioHandler;
+    private readonly IMediaJobHandler<ThumbnailJobDefinition>? _thumbnailHandler;
 
-    public MediaJobHandlerDispatcher(IMediaJobHandler<FakeDelayJobDefinition> fakeDelayHandler)
+    public MediaJobHandlerDispatcher(
+        IMediaJobHandler<FakeDelayJobDefinition> fakeDelayHandler,
+        IMediaJobHandler<TrimMediaJobDefinition>? trimHandler = null,
+        IMediaJobHandler<ExtractAudioJobDefinition>? extractAudioHandler = null,
+        IMediaJobHandler<ThumbnailJobDefinition>? thumbnailHandler = null)
     {
         _fakeDelayHandler = fakeDelayHandler;
+        _trimHandler = trimHandler;
+        _extractAudioHandler = extractAudioHandler;
+        _thumbnailHandler = thumbnailHandler;
     }
 
     public Task ExecuteAsync(
@@ -18,9 +28,23 @@ public sealed class MediaJobHandlerDispatcher : IMediaJobHandlerDispatcher
     {
         return definition switch
         {
-            FakeDelayJobDefinition fake => _fakeDelayHandler.ExecuteAsync(fake, context, cancellationToken),
+            FakeDelayJobDefinition fake =>
+                _fakeDelayHandler.ExecuteAsync(fake, context, cancellationToken),
+            TrimMediaJobDefinition trim =>
+                Require(_trimHandler, trim.Kind).ExecuteAsync(trim, context, cancellationToken),
+            ExtractAudioJobDefinition extract =>
+                Require(_extractAudioHandler, extract.Kind).ExecuteAsync(extract, context, cancellationToken),
+            ThumbnailJobDefinition thumbnail =>
+                Require(_thumbnailHandler, thumbnail.Kind).ExecuteAsync(thumbnail, context, cancellationToken),
             _ => throw new InvalidOperationException($"No handler registered for kind '{definition.Kind}'."),
         };
+    }
+
+    private static IMediaJobHandler<T> Require<T>(IMediaJobHandler<T>? handler, string kind)
+        where T : MediaJobDefinition
+    {
+        return handler
+            ?? throw new InvalidOperationException($"No handler registered for kind '{kind}'.");
     }
 }
 

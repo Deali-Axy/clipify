@@ -210,13 +210,17 @@ public sealed class MediaJobExecutor
 
                 if (from is MediaJobState.Running or MediaJobState.Canceling)
                 {
+                    var (errorCode, errorMessage) = ex is Clipify.Application.Abstractions.ClipifyException clipify
+                        ? (clipify.Code.ToString(), clipify.Message)
+                        : (Clipify.Application.Abstractions.ClipifyErrorCode.HandlerFailed.ToString(), ex.Message);
+
                     var failed = await _store.TransitionAsync(
                             claimed.Id,
                             from,
                             MediaJobState.Failed,
                             failedAt,
-                            errorCode: Clipify.Application.Abstractions.ClipifyErrorCode.HandlerFailed.ToString(),
-                            errorMessage: ex.Message,
+                            errorCode: errorCode,
+                            errorMessage: errorMessage,
                             completedAt: failedAt,
                             clearLeaseOwner: _options.LeaseOwner,
                             cancellationToken: CancellationToken.None)
@@ -229,8 +233,8 @@ public sealed class MediaJobExecutor
                                     claimed.Id,
                                     MediaJobState.Failed,
                                     failedAt,
-                                    ErrorCode: Clipify.Application.Abstractions.ClipifyErrorCode.HandlerFailed.ToString(),
-                                    ErrorMessage: ex.Message),
+                                    ErrorCode: errorCode,
+                                    ErrorMessage: errorMessage),
                                 CancellationToken.None)
                             .ConfigureAwait(false);
                     }
