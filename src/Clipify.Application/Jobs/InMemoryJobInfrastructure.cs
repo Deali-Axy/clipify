@@ -107,15 +107,14 @@ public sealed class ChannelMediaJobChangePublisher : IMediaJobChangePublisher
 
     public ValueTask PublishAsync(MediaJobChange change, CancellationToken cancellationToken = default)
     {
-        Channel<MediaJobChange>[] snapshot;
+        // Hold the gate for the entire non-blocking fan-out so concurrent publishers
+        // cannot interleave writes differently across subscribers.
         lock (_gate)
         {
-            snapshot = _subscribers.ToArray();
-        }
-
-        foreach (var channel in snapshot)
-        {
-            channel.Writer.TryWrite(change);
+            foreach (var channel in _subscribers)
+            {
+                channel.Writer.TryWrite(change);
+            }
         }
 
         return ValueTask.CompletedTask;

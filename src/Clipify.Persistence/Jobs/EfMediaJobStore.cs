@@ -130,51 +130,53 @@ public sealed class EfMediaJobStore : IMediaJobStore
         return await SqliteBusyRetry.ExecuteAsync(async ct =>
         {
             await using var db = await _dbContextFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var entity = await db.MediaJobs.FirstOrDefaultAsync(j => j.Id == jobId.Value, ct)
-                .ConfigureAwait(false);
-            if (entity is null || !string.Equals(entity.State, from.ToString(), StringComparison.Ordinal))
+            var connection = db.Database.GetDbConnection();
+            if (connection.State != ConnectionState.Open)
             {
-                return false;
+                await connection.OpenAsync(ct).ConfigureAwait(false);
             }
 
-            entity.State = to.ToString();
-            entity.UpdatedAtUnixMs = UnixTime.ToUnixMilliseconds(updatedAt);
-            if (startedAt is { } s)
-            {
-                entity.StartedAtUnixMs = UnixTime.ToUnixMilliseconds(s);
-            }
+            await using var command = connection.CreateCommand();
+            // Conditional UPDATE: Id + State=from. Affected-row count is the sole success signal,
+            // so a concurrent CancelAsync that already moved State cannot be overwritten.
+            command.CommandText =
+                """
+                UPDATE media_jobs
+                SET State = $to,
+                    UpdatedAtUnixMs = $updatedAt,
+                    StartedAtUnixMs = COALESCE($startedAt, StartedAtUnixMs),
+                    CompletedAtUnixMs = COALESCE($completedAt, CompletedAtUnixMs),
+                    ErrorCode = COALESCE($errorCode, ErrorCode),
+                    ErrorMessage = COALESCE($errorMessage, ErrorMessage),
+                    Stage = COALESCE($stage, Stage),
+                    LeaseAcquiredAtUnixMs = CASE
+                        WHEN $clearOwner IS NOT NULL AND LeaseOwner = $clearOwner THEN NULL
+                        ELSE LeaseAcquiredAtUnixMs END,
+                    LeaseExpiresAtUnixMs = CASE
+                        WHEN $clearOwner IS NOT NULL AND LeaseOwner = $clearOwner THEN NULL
+                        ELSE LeaseExpiresAtUnixMs END,
+                    HeartbeatAtUnixMs = CASE
+                        WHEN $clearOwner IS NOT NULL AND LeaseOwner = $clearOwner THEN NULL
+                        ELSE HeartbeatAtUnixMs END,
+                    LeaseOwner = CASE
+                        WHEN $clearOwner IS NOT NULL AND LeaseOwner = $clearOwner THEN NULL
+                        ELSE LeaseOwner END
+                WHERE Id = $id
+                  AND State = $from;
+                """;
+            AddParam(command, "$to", to.ToString());
+            AddParam(command, "$updatedAt", UnixTime.ToUnixMilliseconds(updatedAt));
+            AddParam(command, "$startedAt", startedAt is { } s ? UnixTime.ToUnixMilliseconds(s) : DBNull.Value);
+            AddParam(command, "$completedAt", completedAt is { } c ? UnixTime.ToUnixMilliseconds(c) : DBNull.Value);
+            AddParam(command, "$errorCode", (object?)errorCode ?? DBNull.Value);
+            AddParam(command, "$errorMessage", (object?)errorMessage ?? DBNull.Value);
+            AddParam(command, "$stage", (object?)stage ?? DBNull.Value);
+            AddParam(command, "$clearOwner", (object?)clearLeaseOwner ?? DBNull.Value);
+            AddParam(command, "$id", jobId.Value);
+            AddParam(command, "$from", from.ToString());
 
-            if (completedAt is { } c)
-            {
-                entity.CompletedAtUnixMs = UnixTime.ToUnixMilliseconds(c);
-            }
-
-            if (errorCode is not null)
-            {
-                entity.ErrorCode = errorCode;
-            }
-
-            if (errorMessage is not null)
-            {
-                entity.ErrorMessage = errorMessage;
-            }
-
-            if (stage is not null)
-            {
-                entity.Stage = stage;
-            }
-
-            if (clearLeaseOwner is not null
-                && string.Equals(entity.LeaseOwner, clearLeaseOwner, StringComparison.Ordinal))
-            {
-                entity.LeaseOwner = null;
-                entity.LeaseAcquiredAtUnixMs = null;
-                entity.LeaseExpiresAtUnixMs = null;
-                entity.HeartbeatAtUnixMs = null;
-            }
-
-            await db.SaveChangesAsync(ct).ConfigureAwait(false);
-            return true;
+            var rows = await command.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+            return rows == 1;
         }, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
@@ -186,65 +188,90 @@ public sealed class EfMediaJobStore : IMediaJobStore
         return await SqliteBusyRetry.ExecuteAsync(async ct =>
         {
             await using var db = await _dbContextFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-            await using var tx = await db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
+            var connection = db.Database.GetDbConnection();
+            if (connection.State != ConnectionState.Open)
+            {
+                await connection.OpenAsync(ct).ConfigureAwait(false);
+            }
 
-            var entity = await db.MediaJobs.FirstOrDefaultAsync(j => j.Id == jobId.Value, ct)
+            await using var tx = await db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
+            var dbTx = tx.GetDbTransaction();
+            var requestedMs = UnixTime.ToUnixMilliseconds(requestedAt);
+            var stateChanged = false;
+
+            // Conditional updates avoid read-then-write races with TransitionAsync.
+            var queuedRows = await ExecuteNonQueryAsync(
+                    connection,
+                    dbTx,
+                    """
+                    UPDATE media_jobs
+                    SET State = 'Canceled',
+                        CompletedAtUnixMs = $at,
+                        CancelRequestedAtUnixMs = $at,
+                        UpdatedAtUnixMs = $at
+                    WHERE Id = $id
+                      AND State = 'Queued';
+                    """,
+                    ct,
+                    ("$at", requestedMs),
+                    ("$id", jobId.Value))
                 .ConfigureAwait(false);
+
+            if (queuedRows == 1)
+            {
+                stateChanged = true;
+            }
+            else
+            {
+                var runningRows = await ExecuteNonQueryAsync(
+                        connection,
+                        dbTx,
+                        """
+                        UPDATE media_jobs
+                        SET State = 'Canceling',
+                            CancelRequestedAtUnixMs = $at,
+                            UpdatedAtUnixMs = $at
+                        WHERE Id = $id
+                          AND State = 'Running';
+                        """,
+                        ct,
+                        ("$at", requestedMs),
+                        ("$id", jobId.Value))
+                    .ConfigureAwait(false);
+
+                if (runningRows == 1)
+                {
+                    stateChanged = true;
+                }
+                else
+                {
+                    _ = await ExecuteNonQueryAsync(
+                            connection,
+                            dbTx,
+                            """
+                            UPDATE media_jobs
+                            SET CancelRequestedAtUnixMs = COALESCE(CancelRequestedAtUnixMs, $at),
+                                UpdatedAtUnixMs = $at
+                            WHERE Id = $id
+                              AND State = 'Canceling';
+                            """,
+                            ct,
+                            ("$at", requestedMs),
+                            ("$id", jobId.Value))
+                        .ConfigureAwait(false);
+                }
+            }
+
+            var entity = await db.MediaJobs.AsNoTracking()
+                .FirstOrDefaultAsync(j => j.Id == jobId.Value, ct)
+                .ConfigureAwait(false);
+
             if (entity is null)
             {
                 await tx.RollbackAsync(ct).ConfigureAwait(false);
                 return new MediaJobCancelOutcome(false, false, null);
             }
 
-            if (!Enum.TryParse<MediaJobState>(entity.State, out var state))
-            {
-                await tx.RollbackAsync(ct).ConfigureAwait(false);
-                return new MediaJobCancelOutcome(true, false, MediaJobMapper.ToSnapshot(entity));
-            }
-
-            if (MediaJobStateTransitions.IsTerminal(state))
-            {
-                await tx.RollbackAsync(ct).ConfigureAwait(false);
-                return new MediaJobCancelOutcome(true, false, MediaJobMapper.ToSnapshot(entity));
-            }
-
-            var requestedMs = UnixTime.ToUnixMilliseconds(requestedAt);
-            var stateChanged = false;
-
-            switch (state)
-            {
-                case MediaJobState.Queued:
-                    MediaJobStateTransitions.EnsureCanTransition(MediaJobState.Queued, MediaJobState.Canceled);
-                    entity.State = nameof(MediaJobState.Canceled);
-                    entity.CompletedAtUnixMs = requestedMs;
-                    entity.CancelRequestedAtUnixMs = requestedMs;
-                    entity.UpdatedAtUnixMs = requestedMs;
-                    stateChanged = true;
-                    break;
-
-                case MediaJobState.Running:
-                    MediaJobStateTransitions.EnsureCanTransition(MediaJobState.Running, MediaJobState.Canceling);
-                    entity.State = nameof(MediaJobState.Canceling);
-                    entity.CancelRequestedAtUnixMs = requestedMs;
-                    entity.UpdatedAtUnixMs = requestedMs;
-                    stateChanged = true;
-                    break;
-
-                case MediaJobState.Canceling:
-                    if (entity.CancelRequestedAtUnixMs is null)
-                    {
-                        entity.CancelRequestedAtUnixMs = requestedMs;
-                        entity.UpdatedAtUnixMs = requestedMs;
-                    }
-
-                    break;
-
-                default:
-                    await tx.RollbackAsync(ct).ConfigureAwait(false);
-                    return new MediaJobCancelOutcome(true, false, MediaJobMapper.ToSnapshot(entity));
-            }
-
-            await db.SaveChangesAsync(ct).ConfigureAwait(false);
             await tx.CommitAsync(ct).ConfigureAwait(false);
             return new MediaJobCancelOutcome(true, stateChanged, MediaJobMapper.ToSnapshot(entity));
         }, cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -517,6 +544,24 @@ public sealed class EfMediaJobStore : IMediaJobStore
         AddParam(command, "$now", nowMs);
         AddParam(command, "$expires", expiresMs);
         AddParam(command, "$id", jobId);
+        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<int> ExecuteNonQueryAsync(
+        DbConnection connection,
+        DbTransaction tx,
+        string sql,
+        CancellationToken cancellationToken,
+        params (string Name, object Value)[] parameters)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = tx;
+        command.CommandText = sql;
+        foreach (var (name, value) in parameters)
+        {
+            AddParam(command, name, value);
+        }
+
         return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 

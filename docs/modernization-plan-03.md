@@ -98,16 +98,16 @@ dotnet build Clipify.sln -c Release --no-restore
 dotnet test Clipify.sln -c Release --no-build --no-restore
 ```
 
-本地结果（2026-07-28）：Release build 成功（Forms 既有 MSB3277 警告）；测试 **67** 通过（含审阅竞态回归：连续唤醒、取消/claim、过期持锁并发、双 watcher 广播）。
+本地结果（2026-07-28）：Release build 成功（Forms 既有 MSB3277 警告）；测试 **70** 通过（含审阅竞态回归：连续唤醒、取消/claim、过期持锁并发、双 watcher 广播、条件 Transition 并发、并发 Publish 顺序）。
 
 ### 审阅修复（合并前）
 
 Codex 审阅指出的问题已修复：
 
 1. Worker 循环仅使用 Queue 超时轮询，避免 `PeriodicTimer` 并发等待崩溃；
-2. Store 增加原子 `CancelAsync`，`TransitionAsync` 返回是否提交；服务只发布实际提交的状态；
+2. Store 增加原子 `CancelAsync`（条件 UPDATE），`TransitionAsync` 使用 `WHERE Id AND State=from` 的参数化 UPDATE，以受影响行数返回成功；服务只发布实际提交的状态；
 3. 并发计数包含全部 Running/Canceling（含租约已过期但仍持锁的任务）；
-4. `WatchAsync` 改为每订阅者独立有界 Channel 广播。
+4. `WatchAsync` 每订阅者独立有界 Channel；`PublishAsync` 在同一锁内完成全部 `TryWrite`，保证跨订阅者事件顺序一致。
 
 若并发、SQLite 或跨平台文件锁无法满足总方案语义，应停止相关实现并记录 ADR，不得静默引入计划外框架。
 

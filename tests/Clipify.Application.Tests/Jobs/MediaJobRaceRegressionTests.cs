@@ -213,6 +213,59 @@ public class MediaJobRaceRegressionTests
         Assert.Equal(first.Select(c => c.State), second.Select(c => c.State));
     }
 
+    [Fact]
+    public async Task Concurrent_publishes_preserve_identical_order_across_subscribers()
+    {
+        var changes = new ChannelMediaJobChangePublisher();
+        const int eventCount = 200;
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+        var first = new List<string>(eventCount);
+        var second = new List<string>(eventCount);
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var watch1 = Task.Run(async () =>
+        {
+            await foreach (var change in changes.WatchAsync(cts.Token))
+            {
+                first.Add(change.JobId.Value);
+                if (first.Count >= eventCount)
+                {
+                    break;
+                }
+            }
+        });
+        var watch2 = Task.Run(async () =>
+        {
+            await foreach (var change in changes.WatchAsync(cts.Token))
+            {
+                second.Add(change.JobId.Value);
+                if (second.Count >= eventCount)
+                {
+                    break;
+                }
+            }
+        });
+
+        await Task.Delay(50);
+        ready.SetResult();
+        await ready.Task;
+
+        var publishers = Enumerable.Range(0, eventCount)
+            .Select(i => Task.Run(async () =>
+            {
+                var id = MediaJobId.Parse(i.ToString("D8"));
+                await changes.PublishAsync(new MediaJobChange(id, MediaJobState.Queued, DateTimeOffset.UtcNow));
+            }))
+            .ToArray();
+
+        await Task.WhenAll(publishers);
+        await Task.WhenAll(watch1, watch2);
+
+        Assert.Equal(eventCount, first.Count);
+        Assert.Equal(first, second);
+    }
+
     private static async Task WaitForAsync(Func<Task<bool>> condition, TimeSpan timeout)
     {
         var deadline = DateTime.UtcNow + timeout;
