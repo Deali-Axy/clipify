@@ -1,7 +1,7 @@
 # Clipify 现代化 · 第 3 轮（阶段 3：Domain、Application 与任务系统）
 
-> 状态：本地验收通过（待提交 / CI）  
-> 日期：2026-07-27  
+> 状态：已关闭（复审通过，可合并）  
+> 日期：2026-07-28  
 > 完整方案：[modernization-plan.md](./modernization-plan.md)  
 > 范围：仅阶段 3（见完整方案 [§15 阶段 3](./modernization-plan.md#阶段-3domainapplication-与任务系统)、[§6 任务系统](./modernization-plan.md#6-异步媒体任务系统)）  
 > 前置：[modernization-plan-02.md](./modernization-plan-02.md) 已关闭  
@@ -37,6 +37,8 @@
 - 阶段 3 仅注册白名单 Definition `fake_delay` 与对应 Fake Handler，真实媒体 Definition 留待阶段 4。
 - 为规避 `Microsoft.Data.Sqlite` 10.0.10 传递依赖 `SQLitePCLRaw.lib.e_sqlite3` 的 NU1903（GHSA-2m69-gcr7-jv3q），直接固定 `SQLitePCLRaw.bundle_e_sqlite3` 3.0.5。
 - `dotnet-ef` 通过仓库本地 tool manifest（`.config/dotnet-tools.json`，10.0.10）管理，不依赖未记录的全局工具。
+- `TransitionAsync` / `CancelAsync` 使用 `WHERE Id AND State=…` 条件 UPDATE，以受影响行数判定成功。
+- `WatchAsync` 每订阅者独立 Channel；`PublishAsync` 在同一锁内 fan-out，保证跨订阅者顺序一致。
 
 ## 工作项
 
@@ -79,7 +81,7 @@ Persistence 测试使用真实 SQLite 临时文件；禁止用 EF Core InMemory 
 
 - [x] 不依赖 FFmpeg 即可验证完整任务生命周期；
 - [x] Domain 状态机有合法/非法转换测试；
-- [x] EF Core Initial Migration 已提交；（代码已生成，待随本分支提交）
+- [x] EF Core Initial Migration 已提交；
 - [x] `IDbContextFactory` 使用短生命周期 Context；
 - [x] 排队、查询、取消、重试、历史和 Artifact 查询通过；
 - [x] Claim/Lease/Heartbeat 使用参数化原子 SQL；
@@ -88,7 +90,7 @@ Persistence 测试使用真实 SQLite 临时文件；禁止用 EF Core InMemory 
 - [x] 应用重启后状态正确，Interrupted 不自动重跑；
 - [x] `src/`、`tests/` 无 `async void`；
 - [x] 完整解决方案 restore/build/test 通过；
-- [ ] Windows、macOS、Ubuntu CI 通过。（待推送后验证）
+- [ ] Windows、macOS、Ubuntu CI 通过。（随合并 PR 验证）
 
 ## 验证命令
 
@@ -98,18 +100,14 @@ dotnet build Clipify.sln -c Release --no-restore
 dotnet test Clipify.sln -c Release --no-build --no-restore
 ```
 
-本地结果（2026-07-28）：Release build 成功（Forms 既有 MSB3277 警告）；测试 **70** 通过（含审阅竞态回归：连续唤醒、取消/claim、过期持锁并发、双 watcher 广播、条件 Transition 并发、并发 Publish 顺序）。
+本地结果（2026-07-28）：Release build 成功（Forms 既有警告）；测试 **70** 通过；Codex 复审通过（4 项问题全部关闭）；并发压力测试额外复跑 5 轮通过。
 
-### 审阅修复（合并前）
-
-Codex 审阅指出的问题已修复：
+### 审阅修复（已关闭）
 
 1. Worker 循环仅使用 Queue 超时轮询，避免 `PeriodicTimer` 并发等待崩溃；
-2. Store 增加原子 `CancelAsync`（条件 UPDATE），`TransitionAsync` 使用 `WHERE Id AND State=from` 的参数化 UPDATE，以受影响行数返回成功；服务只发布实际提交的状态；
+2. `CancelAsync` / `TransitionAsync` 均为条件 UPDATE，取消不会被 Succeeded 覆盖；
 3. 并发计数包含全部 Running/Canceling（含租约已过期但仍持锁的任务）；
-4. `WatchAsync` 每订阅者独立有界 Channel；`PublishAsync` 在同一锁内完成全部 `TryWrite`，保证跨订阅者事件顺序一致。
-
-若并发、SQLite 或跨平台文件锁无法满足总方案语义，应停止相关实现并记录 ADR，不得静默引入计划外框架。
+4. `WatchAsync` 独立 Channel + 同锁 fan-out；广播测试通过 `SubscriberCount` 握手等待注册。
 
 ## 本轮结果摘要
 
@@ -117,7 +115,7 @@ Codex 审阅指出的问题已修复：
 - Application：`MediaJobService` / `MediaJobExecutor` / Fake Handler / Channel 唤醒
 - Persistence：EF Core SQLite、`InitialCreate` Migration、`EfMediaJobStore` 原子 Claim、File Job/Migration Lock、Busy 退避
 - Hosting：`MediaJobWorker` + `AddClipifyMediaJobs`
-- 测试覆盖双 Host、并发 2、重启恢复与锁语义
+- 测试覆盖双 Host、并发 2、重启恢复、锁语义与审阅竞态回归
 
 ## 下一轮
 

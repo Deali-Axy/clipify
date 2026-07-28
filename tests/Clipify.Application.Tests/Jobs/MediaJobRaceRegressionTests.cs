@@ -199,8 +199,7 @@ public class MediaJobRaceRegressionTests
             }
         });
 
-        // Give subscribers time to register.
-        await Task.Delay(50);
+        await WaitForAsync(() => Task.FromResult(changes.SubscriberCount >= 2), TimeSpan.FromSeconds(2));
 
         var jobId = MediaJobId.New();
         await changes.PublishAsync(new MediaJobChange(jobId, MediaJobState.Queued, DateTimeOffset.UtcNow));
@@ -222,7 +221,6 @@ public class MediaJobRaceRegressionTests
 
         var first = new List<string>(eventCount);
         var second = new List<string>(eventCount);
-        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var watch1 = Task.Run(async () =>
         {
@@ -247,9 +245,7 @@ public class MediaJobRaceRegressionTests
             }
         });
 
-        await Task.Delay(50);
-        ready.SetResult();
-        await ready.Task;
+        await WaitForAsync(() => Task.FromResult(changes.SubscriberCount >= 2), TimeSpan.FromSeconds(2));
 
         var publishers = Enumerable.Range(0, eventCount)
             .Select(i => Task.Run(async () =>

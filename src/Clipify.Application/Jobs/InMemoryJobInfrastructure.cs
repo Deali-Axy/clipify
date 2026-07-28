@@ -105,6 +105,18 @@ public sealed class ChannelMediaJobChangePublisher : IMediaJobChangePublisher
     private readonly object _gate = new();
     private readonly List<Channel<MediaJobChange>> _subscribers = [];
 
+    /// <summary>Number of active <see cref="WatchAsync"/> subscribers. Used by tests for registration handshakes.</summary>
+    public int SubscriberCount
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _subscribers.Count;
+            }
+        }
+    }
+
     public ValueTask PublishAsync(MediaJobChange change, CancellationToken cancellationToken = default)
     {
         // Hold the gate for the entire non-blocking fan-out so concurrent publishers
