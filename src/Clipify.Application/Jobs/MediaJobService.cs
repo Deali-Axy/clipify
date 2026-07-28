@@ -56,47 +56,24 @@ public sealed class MediaJobService : IMediaJobService
         CancellationToken cancellationToken = default)
     {
         var now = _timeProvider.GetUtcNow();
-        var snapshot = await _store.GetAsync(jobId, cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException($"Job '{jobId}' was not found.");
-
-        if (MediaJobStateTransitions.IsTerminal(snapshot.State))
+        var outcome = await _store.CancelAsync(jobId, now, cancellationToken).ConfigureAwait(false);
+        if (!outcome.Found)
         {
-            return;
+            throw new InvalidOperationException($"Job '{jobId}' was not found.");
         }
 
-        if (snapshot.State == MediaJobState.Queued)
+        // Always poke the local token when a cancel was recorded against a live job.
+        if (outcome.Snapshot is { CancelRequestedAt: not null }
+            || outcome.Snapshot?.State is MediaJobState.Canceled or MediaJobState.Canceling)
         {
-            await _store.TransitionAsync(
-                    jobId,
-                    MediaJobState.Queued,
-                    MediaJobState.Canceled,
-                    now,
-                    completedAt: now,
-                    cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
-
-            await _changes.PublishAsync(
-                    new MediaJobChange(jobId, MediaJobState.Canceled, now),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            return;
+            _cancellation.TryCancel(jobId);
         }
 
-        await _store.RequestCancelAsync(jobId, now, cancellationToken).ConfigureAwait(false);
-        _cancellation.TryCancel(jobId);
-
-        if (snapshot.State == MediaJobState.Running)
+        // Publish only the state that was actually committed.
+        if (outcome.StateChanged && outcome.Snapshot is not null)
         {
-            await _store.TransitionAsync(
-                    jobId,
-                    MediaJobState.Running,
-                    MediaJobState.Canceling,
-                    now,
-                    cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
-
             await _changes.PublishAsync(
-                    new MediaJobChange(jobId, MediaJobState.Canceling, now),
+                    new MediaJobChange(jobId, outcome.Snapshot.State, now),
                     cancellationToken)
                 .ConfigureAwait(false);
         }

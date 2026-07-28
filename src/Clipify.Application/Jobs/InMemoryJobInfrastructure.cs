@@ -97,31 +97,63 @@ public sealed class InMemoryJobCancellationRegistry : IJobCancellationRegistry
     }
 }
 
+/// <summary>
+/// Fan-out publisher: each <see cref="WatchAsync"/> subscriber gets an independent bounded channel.
+/// </summary>
 public sealed class ChannelMediaJobChangePublisher : IMediaJobChangePublisher
 {
-    private readonly Channel<MediaJobChange> _channel = Channel.CreateBounded<MediaJobChange>(
-        new BoundedChannelOptions(1024)
-        {
-            FullMode = BoundedChannelFullMode.DropOldest,
-            SingleReader = false,
-            SingleWriter = false,
-        });
+    private readonly object _gate = new();
+    private readonly List<Channel<MediaJobChange>> _subscribers = [];
 
     public ValueTask PublishAsync(MediaJobChange change, CancellationToken cancellationToken = default)
     {
-        _channel.Writer.TryWrite(change);
+        Channel<MediaJobChange>[] snapshot;
+        lock (_gate)
+        {
+            snapshot = _subscribers.ToArray();
+        }
+
+        foreach (var channel in snapshot)
+        {
+            channel.Writer.TryWrite(change);
+        }
+
         return ValueTask.CompletedTask;
     }
 
     public async IAsyncEnumerable<MediaJobChange> WatchAsync(
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        while (await _channel.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
+        var channel = Channel.CreateBounded<MediaJobChange>(new BoundedChannelOptions(1024)
         {
-            while (_channel.Reader.TryRead(out var change))
+            FullMode = BoundedChannelFullMode.DropOldest,
+            SingleReader = true,
+            SingleWriter = false,
+        });
+
+        lock (_gate)
+        {
+            _subscribers.Add(channel);
+        }
+
+        try
+        {
+            while (await channel.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
             {
-                yield return change;
+                while (channel.Reader.TryRead(out var change))
+                {
+                    yield return change;
+                }
             }
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                _subscribers.Remove(channel);
+            }
+
+            channel.Writer.TryComplete();
         }
     }
 }

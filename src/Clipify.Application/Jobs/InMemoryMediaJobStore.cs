@@ -79,7 +79,7 @@ public sealed class InMemoryMediaJobStore : IMediaJobStore
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask TransitionAsync(
+    public ValueTask<bool> TransitionAsync(
         MediaJobId jobId,
         MediaJobState from,
         MediaJobState to,
@@ -96,7 +96,7 @@ public sealed class InMemoryMediaJobStore : IMediaJobStore
         {
             if (!_jobs.TryGetValue(jobId, out var snapshot) || snapshot.State != from)
             {
-                return ValueTask.CompletedTask;
+                return ValueTask.FromResult(false);
             }
 
             MediaJobStateTransitions.EnsureCanTransition(from, to);
@@ -125,25 +125,68 @@ public sealed class InMemoryMediaJobStore : IMediaJobStore
             }
 
             _jobs[jobId] = updated;
+            return ValueTask.FromResult(true);
         }
-
-        return ValueTask.CompletedTask;
     }
 
-    public ValueTask<bool> RequestCancelAsync(
+    public ValueTask<MediaJobCancelOutcome> CancelAsync(
         MediaJobId jobId,
         DateTimeOffset requestedAt,
         CancellationToken cancellationToken = default)
     {
         lock (_gate)
         {
-            if (!_jobs.TryGetValue(jobId, out var snapshot) || MediaJobStateTransitions.IsTerminal(snapshot.State))
+            if (!_jobs.TryGetValue(jobId, out var snapshot))
             {
-                return ValueTask.FromResult(false);
+                return ValueTask.FromResult(new MediaJobCancelOutcome(false, false, null));
             }
 
-            _jobs[jobId] = snapshot with { CancelRequestedAt = requestedAt, UpdatedAt = requestedAt };
-            return ValueTask.FromResult(true);
+            if (MediaJobStateTransitions.IsTerminal(snapshot.State))
+            {
+                return ValueTask.FromResult(new MediaJobCancelOutcome(true, false, Clone(snapshot)));
+            }
+
+            MediaJobSnapshot updated;
+            var stateChanged = false;
+
+            switch (snapshot.State)
+            {
+                case MediaJobState.Queued:
+                    MediaJobStateTransitions.EnsureCanTransition(MediaJobState.Queued, MediaJobState.Canceled);
+                    updated = snapshot with
+                    {
+                        State = MediaJobState.Canceled,
+                        UpdatedAt = requestedAt,
+                        CompletedAt = requestedAt,
+                        CancelRequestedAt = requestedAt,
+                    };
+                    stateChanged = true;
+                    break;
+
+                case MediaJobState.Running:
+                    MediaJobStateTransitions.EnsureCanTransition(MediaJobState.Running, MediaJobState.Canceling);
+                    updated = snapshot with
+                    {
+                        State = MediaJobState.Canceling,
+                        UpdatedAt = requestedAt,
+                        CancelRequestedAt = requestedAt,
+                    };
+                    stateChanged = true;
+                    break;
+
+                case MediaJobState.Canceling:
+                    updated = snapshot.CancelRequestedAt is null
+                        ? snapshot with { CancelRequestedAt = requestedAt, UpdatedAt = requestedAt }
+                        : snapshot;
+                    stateChanged = false;
+                    break;
+
+                default:
+                    return ValueTask.FromResult(new MediaJobCancelOutcome(true, false, Clone(snapshot)));
+            }
+
+            _jobs[jobId] = updated;
+            return ValueTask.FromResult(new MediaJobCancelOutcome(true, stateChanged, Clone(updated)));
         }
     }
 
@@ -165,10 +208,10 @@ public sealed class InMemoryMediaJobStore : IMediaJobStore
     {
         lock (_gate)
         {
+            // Count every Running/Canceling job, including those with expired leases that still
+            // hold a job lock and therefore have not been repaired to Interrupted.
             var runningCount = _jobs.Values.Count(j =>
-                j.State is MediaJobState.Running or MediaJobState.Canceling
-                && j.LeaseExpiresAt is { } expires
-                && expires > now);
+                j.State is MediaJobState.Running or MediaJobState.Canceling);
 
             if (runningCount >= options.MaxConcurrency)
             {

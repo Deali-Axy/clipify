@@ -20,7 +20,10 @@ public interface IMediaJobStore
         MediaJobProgress progress,
         CancellationToken cancellationToken = default);
 
-    ValueTask TransitionAsync(
+    /// <summary>
+    /// Attempts a conditional state transition. Returns true only when the row was still in <paramref name="from"/>.
+    /// </summary>
+    ValueTask<bool> TransitionAsync(
         MediaJobId jobId,
         MediaJobState from,
         MediaJobState to,
@@ -33,7 +36,11 @@ public interface IMediaJobStore
         string? clearLeaseOwner = null,
         CancellationToken cancellationToken = default);
 
-    ValueTask<bool> RequestCancelAsync(
+    /// <summary>
+    /// Atomically cancels or requests cancel based on the current persisted state.
+    /// Queued → Canceled; Running → Canceling + CancelRequestedAt; Canceling → CancelRequestedAt only.
+    /// </summary>
+    ValueTask<MediaJobCancelOutcome> CancelAsync(
         MediaJobId jobId,
         DateTimeOffset requestedAt,
         CancellationToken cancellationToken = default);

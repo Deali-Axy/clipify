@@ -166,6 +166,87 @@ public class EfMediaJobStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Expired_lease_with_held_lock_still_counts_against_concurrency()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var running = MediaJobSnapshot.CreateQueued(MediaJobId.New(), new FakeDelayJobDefinition(), now)
+            .WithState(MediaJobState.Running, now, startedAt: now) with
+            {
+                LeaseOwner = "owner-a",
+                LeaseAcquiredAt = now.AddSeconds(-60),
+                LeaseExpiresAt = now.AddSeconds(-30),
+                HeartbeatAt = now.AddSeconds(-60),
+            };
+        await _fx.Store.InsertAsync(running);
+
+        await using var held = await _fx.JobLock.TryAcquireAsync(running.Id);
+        Assert.NotNull(held);
+
+        // Repair must leave the job Running while the lock is held.
+        var repaired = await _fx.Store.RepairExpiredLeasesAsync(
+            now,
+            (id, owner) => _fx.JobLock.IsHeld(id, owner));
+        Assert.Equal(0, repaired);
+
+        var queued = MediaJobSnapshot.CreateQueued(
+            MediaJobId.New(),
+            new FakeDelayJobDefinition { Label = "should-wait" },
+            now);
+        await _fx.Store.InsertAsync(queued);
+
+        var claimed = await _fx.Store.TryClaimNextAsync(
+            new MediaJobClaimOptions("owner-b", TimeSpan.FromSeconds(30), MaxConcurrency: 1),
+            now);
+        Assert.Null(claimed);
+
+        await held!.DisposeAsync();
+        repaired = await _fx.Store.RepairExpiredLeasesAsync(
+            now,
+            (id, owner) => _fx.JobLock.IsHeld(id, owner));
+        Assert.Equal(1, repaired);
+
+        claimed = await _fx.Store.TryClaimNextAsync(
+            new MediaJobClaimOptions("owner-b", TimeSpan.FromSeconds(30), MaxConcurrency: 1),
+            now);
+        Assert.NotNull(claimed);
+        Assert.Equal(queued.Id, claimed.Id);
+    }
+
+    [Fact]
+    public async Task Cancel_queued_vs_claim_is_atomic()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var job = MediaJobSnapshot.CreateQueued(MediaJobId.New(), new FakeDelayJobDefinition(), now);
+        await _fx.Store.InsertAsync(job);
+
+        var claimed = await _fx.Store.TryClaimNextAsync(
+            new MediaJobClaimOptions("owner-a", TimeSpan.FromSeconds(30), 1),
+            now);
+        Assert.NotNull(claimed);
+
+        var outcome = await _fx.Store.CancelAsync(job.Id, now.AddMilliseconds(1));
+        Assert.True(outcome.Found);
+        Assert.True(outcome.StateChanged);
+        Assert.Equal(MediaJobState.Canceling, outcome.Snapshot!.State);
+        Assert.NotNull(outcome.Snapshot.CancelRequestedAt);
+
+        // A second cancel against an already-terminal path after completing cancel request.
+        var terminal = await _fx.Store.TransitionAsync(
+            job.Id,
+            MediaJobState.Canceling,
+            MediaJobState.Canceled,
+            now.AddMilliseconds(2),
+            completedAt: now.AddMilliseconds(2),
+            clearLeaseOwner: "owner-a");
+        Assert.True(terminal);
+
+        var afterSuccessCancel = await _fx.Store.CancelAsync(job.Id, now.AddMilliseconds(3));
+        Assert.True(afterSuccessCancel.Found);
+        Assert.False(afterSuccessCancel.StateChanged);
+        Assert.Equal(MediaJobState.Canceled, afterSuccessCancel.Snapshot!.State);
+    }
+
+    [Fact]
     public async Task Migration_lock_is_separate_from_job_lock()
     {
         var jobId = MediaJobId.New();

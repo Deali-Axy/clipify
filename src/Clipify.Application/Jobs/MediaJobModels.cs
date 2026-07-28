@@ -20,6 +20,15 @@ public sealed record MediaJobClaimOptions(
     TimeSpan LeaseDuration,
     int MaxConcurrency);
 
+/// <summary>
+/// Result of an atomic cancel attempt. <see cref="StateChanged"/> is true only when the store
+/// actually committed a new state; callers must publish events only in that case.
+/// </summary>
+public sealed record MediaJobCancelOutcome(
+    bool Found,
+    bool StateChanged,
+    MediaJobSnapshot? Snapshot);
+
 public sealed class MediaJobExecutionContext
 {
     public required MediaJobSnapshot Snapshot { get; init; }

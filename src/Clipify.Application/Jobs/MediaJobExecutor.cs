@@ -41,16 +41,14 @@ public sealed class MediaJobExecutor
     {
         await RepairAsync(stoppingToken).ConfigureAwait(false);
 
-        using var timer = new PeriodicTimer(_options.PollInterval, _timeProvider);
-
-        // Kick once immediately so queued jobs run without waiting for the first tick.
+        // Kick once immediately so queued jobs run without waiting for the first poll.
         await PumpAsync(stoppingToken).ConfigureAwait(false);
 
+        // Use the queue timeout as the sole poll cadence. Do not race PeriodicTimer with
+        // WaitAsync — a leftover timer wait would throw on the next concurrent WaitForNextTickAsync.
         while (!stoppingToken.IsCancellationRequested)
         {
-            var wakeTask = _queue.WaitAsync(_options.PollInterval, stoppingToken).AsTask();
-            var tickTask = timer.WaitForNextTickAsync(stoppingToken).AsTask();
-            _ = await Task.WhenAny(wakeTask, tickTask).ConfigureAwait(false);
+            _ = await _queue.WaitAsync(_options.PollInterval, stoppingToken).ConfigureAwait(false);
 
             if (stoppingToken.IsCancellationRequested)
             {
@@ -157,7 +155,7 @@ public sealed class MediaJobExecutor
                     }
                     else
                     {
-                        await _store.TransitionAsync(
+                        var succeeded = await _store.TransitionAsync(
                                 claimed.Id,
                                 MediaJobState.Running,
                                 MediaJobState.Succeeded,
@@ -167,10 +165,17 @@ public sealed class MediaJobExecutor
                                 cancellationToken: CancellationToken.None)
                             .ConfigureAwait(false);
 
-                        await _changes.PublishAsync(
-                                new MediaJobChange(claimed.Id, MediaJobState.Succeeded, completedAt),
-                                CancellationToken.None)
-                            .ConfigureAwait(false);
+                        if (succeeded)
+                        {
+                            await _changes.PublishAsync(
+                                    new MediaJobChange(claimed.Id, MediaJobState.Succeeded, completedAt),
+                                    CancellationToken.None)
+                                .ConfigureAwait(false);
+                        }
+                        else if (await _store.IsCancelRequestedAsync(claimed.Id, CancellationToken.None).ConfigureAwait(false))
+                        {
+                            await CompleteAsCanceledAsync(claimed.Id, completedAt).ConfigureAwait(false);
+                        }
                     }
                 }
                 finally
@@ -205,7 +210,7 @@ public sealed class MediaJobExecutor
 
                 if (from is MediaJobState.Running or MediaJobState.Canceling)
                 {
-                    await _store.TransitionAsync(
+                    var failed = await _store.TransitionAsync(
                             claimed.Id,
                             from,
                             MediaJobState.Failed,
@@ -217,15 +222,18 @@ public sealed class MediaJobExecutor
                             cancellationToken: CancellationToken.None)
                         .ConfigureAwait(false);
 
-                    await _changes.PublishAsync(
-                            new MediaJobChange(
-                                claimed.Id,
-                                MediaJobState.Failed,
-                                failedAt,
-                                ErrorCode: Clipify.Application.Abstractions.ClipifyErrorCode.HandlerFailed.ToString(),
-                                ErrorMessage: ex.Message),
-                            CancellationToken.None)
-                        .ConfigureAwait(false);
+                    if (failed)
+                    {
+                        await _changes.PublishAsync(
+                                new MediaJobChange(
+                                    claimed.Id,
+                                    MediaJobState.Failed,
+                                    failedAt,
+                                    ErrorCode: Clipify.Application.Abstractions.ClipifyErrorCode.HandlerFailed.ToString(),
+                                    ErrorMessage: ex.Message),
+                                CancellationToken.None)
+                            .ConfigureAwait(false);
+                    }
                 }
             }
             finally
@@ -245,21 +253,32 @@ public sealed class MediaJobExecutor
 
         if (current.State == MediaJobState.Running)
         {
-            await _store.TransitionAsync(
+            var moved = await _store.TransitionAsync(
                     jobId,
                     MediaJobState.Running,
                     MediaJobState.Canceling,
                     at,
                     cancellationToken: CancellationToken.None)
                 .ConfigureAwait(false);
+            if (!moved)
+            {
+                current = await _store.GetAsync(jobId, CancellationToken.None).ConfigureAwait(false);
+                if (current is null || MediaJobStateTransitions.IsTerminal(current.State))
+                {
+                    return;
+                }
+            }
+            else
+            {
+                current = current with { State = MediaJobState.Canceling };
+            }
         }
 
-        var from = current.State == MediaJobState.Running ? MediaJobState.Canceling : current.State;
-        if (from is MediaJobState.Canceling or MediaJobState.Queued)
+        if (current.State is MediaJobState.Canceling or MediaJobState.Queued)
         {
-            await _store.TransitionAsync(
+            var canceled = await _store.TransitionAsync(
                     jobId,
-                    from,
+                    current.State,
                     MediaJobState.Canceled,
                     at,
                     completedAt: at,
@@ -267,10 +286,13 @@ public sealed class MediaJobExecutor
                     cancellationToken: CancellationToken.None)
                 .ConfigureAwait(false);
 
-            await _changes.PublishAsync(
-                    new MediaJobChange(jobId, MediaJobState.Canceled, at),
-                    CancellationToken.None)
-                .ConfigureAwait(false);
+            if (canceled)
+            {
+                await _changes.PublishAsync(
+                        new MediaJobChange(jobId, MediaJobState.Canceled, at),
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
         }
     }
 

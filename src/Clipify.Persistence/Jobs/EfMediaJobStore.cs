@@ -112,7 +112,7 @@ public sealed class EfMediaJobStore : IMediaJobStore
         }, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    public async ValueTask TransitionAsync(
+    public async ValueTask<bool> TransitionAsync(
         MediaJobId jobId,
         MediaJobState from,
         MediaJobState to,
@@ -127,14 +127,14 @@ public sealed class EfMediaJobStore : IMediaJobStore
     {
         MediaJobStateTransitions.EnsureCanTransition(from, to);
 
-        await SqliteBusyRetry.ExecuteAsync(async ct =>
+        return await SqliteBusyRetry.ExecuteAsync(async ct =>
         {
             await using var db = await _dbContextFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             var entity = await db.MediaJobs.FirstOrDefaultAsync(j => j.Id == jobId.Value, ct)
                 .ConfigureAwait(false);
             if (entity is null || !string.Equals(entity.State, from.ToString(), StringComparison.Ordinal))
             {
-                return;
+                return false;
             }
 
             entity.State = to.ToString();
@@ -174,10 +174,11 @@ public sealed class EfMediaJobStore : IMediaJobStore
             }
 
             await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            return true;
         }, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    public async ValueTask<bool> RequestCancelAsync(
+    public async ValueTask<MediaJobCancelOutcome> CancelAsync(
         MediaJobId jobId,
         DateTimeOffset requestedAt,
         CancellationToken cancellationToken = default)
@@ -185,23 +186,67 @@ public sealed class EfMediaJobStore : IMediaJobStore
         return await SqliteBusyRetry.ExecuteAsync(async ct =>
         {
             await using var db = await _dbContextFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            await using var tx = await db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
+
             var entity = await db.MediaJobs.FirstOrDefaultAsync(j => j.Id == jobId.Value, ct)
                 .ConfigureAwait(false);
             if (entity is null)
             {
-                return false;
+                await tx.RollbackAsync(ct).ConfigureAwait(false);
+                return new MediaJobCancelOutcome(false, false, null);
             }
 
-            if (Enum.TryParse<MediaJobState>(entity.State, out var state)
-                && MediaJobStateTransitions.IsTerminal(state))
+            if (!Enum.TryParse<MediaJobState>(entity.State, out var state))
             {
-                return false;
+                await tx.RollbackAsync(ct).ConfigureAwait(false);
+                return new MediaJobCancelOutcome(true, false, MediaJobMapper.ToSnapshot(entity));
             }
 
-            entity.CancelRequestedAtUnixMs = UnixTime.ToUnixMilliseconds(requestedAt);
-            entity.UpdatedAtUnixMs = UnixTime.ToUnixMilliseconds(requestedAt);
+            if (MediaJobStateTransitions.IsTerminal(state))
+            {
+                await tx.RollbackAsync(ct).ConfigureAwait(false);
+                return new MediaJobCancelOutcome(true, false, MediaJobMapper.ToSnapshot(entity));
+            }
+
+            var requestedMs = UnixTime.ToUnixMilliseconds(requestedAt);
+            var stateChanged = false;
+
+            switch (state)
+            {
+                case MediaJobState.Queued:
+                    MediaJobStateTransitions.EnsureCanTransition(MediaJobState.Queued, MediaJobState.Canceled);
+                    entity.State = nameof(MediaJobState.Canceled);
+                    entity.CompletedAtUnixMs = requestedMs;
+                    entity.CancelRequestedAtUnixMs = requestedMs;
+                    entity.UpdatedAtUnixMs = requestedMs;
+                    stateChanged = true;
+                    break;
+
+                case MediaJobState.Running:
+                    MediaJobStateTransitions.EnsureCanTransition(MediaJobState.Running, MediaJobState.Canceling);
+                    entity.State = nameof(MediaJobState.Canceling);
+                    entity.CancelRequestedAtUnixMs = requestedMs;
+                    entity.UpdatedAtUnixMs = requestedMs;
+                    stateChanged = true;
+                    break;
+
+                case MediaJobState.Canceling:
+                    if (entity.CancelRequestedAtUnixMs is null)
+                    {
+                        entity.CancelRequestedAtUnixMs = requestedMs;
+                        entity.UpdatedAtUnixMs = requestedMs;
+                    }
+
+                    break;
+
+                default:
+                    await tx.RollbackAsync(ct).ConfigureAwait(false);
+                    return new MediaJobCancelOutcome(true, false, MediaJobMapper.ToSnapshot(entity));
+            }
+
             await db.SaveChangesAsync(ct).ConfigureAwait(false);
-            return true;
+            await tx.CommitAsync(ct).ConfigureAwait(false);
+            return new MediaJobCancelOutcome(true, stateChanged, MediaJobMapper.ToSnapshot(entity));
         }, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
@@ -237,7 +282,7 @@ public sealed class EfMediaJobStore : IMediaJobStore
             var nowMs = UnixTime.ToUnixMilliseconds(now);
             var expiresMs = UnixTime.ToUnixMilliseconds(now + options.LeaseDuration);
 
-            var runningCount = await CountActiveLeasesAsync(connection, dbTx, nowMs, ct).ConfigureAwait(false);
+            var runningCount = await CountActiveJobsAsync(connection, dbTx, ct).ConfigureAwait(false);
             if (runningCount >= options.MaxConcurrency)
             {
                 await tx.RollbackAsync(ct).ConfigureAwait(false);
@@ -406,23 +451,21 @@ public sealed class EfMediaJobStore : IMediaJobStore
         return JsonSerializer.Serialize(dto, ProgressOptions);
     }
 
-    private static async Task<int> CountActiveLeasesAsync(
+    private static async Task<int> CountActiveJobsAsync(
         DbConnection connection,
         DbTransaction tx,
-        long nowMs,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
         command.Transaction = tx;
+        // Include expired-lease Running/Canceling rows. Repair only frees the slot after the
+        // job lock is released; until then the job is still occupying concurrency capacity.
         command.CommandText =
             """
             SELECT COUNT(*)
             FROM media_jobs
-            WHERE State IN ('Running', 'Canceling')
-              AND LeaseExpiresAtUnixMs IS NOT NULL
-              AND LeaseExpiresAtUnixMs > $now;
+            WHERE State IN ('Running', 'Canceling');
             """;
-        AddParam(command, "$now", nowMs);
         var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
         return Convert.ToInt32(result);
     }
