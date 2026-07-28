@@ -2,7 +2,6 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
-
   <ItemGroup>
     <!-- Legacy WinForms / Core (kept until feature parity) -->
     <PackageVersion Include="AntDesign" Version="0.20.4.2" />
@@ -11,8 +10,8 @@
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebView.WindowsForms" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.10" />
+    <PackageVersion Include="System.CommandLine" Version="2.0.10" />
     <PackageVersion Include="xFFmpeg.NET" Version="7.2.0" />
-
     <!-- Persistence / Hosting (phase 3) -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" />
@@ -24,7 +23,6 @@
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.10" />
-
     <!-- Test -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
