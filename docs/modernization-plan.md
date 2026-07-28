@@ -1253,6 +1253,13 @@ osx-arm64
 
 ## 15. 分阶段实施计划
 
+### 分支约定（2026-07-28 起）
+
+- 集成分支：`modernization/trunk`（由原 `modernization/phase-0-1` 重命名；承载已验收的阶段成果）。
+- 阶段工作分支：从 trunk 派生，例如 `modernization/phase-4-ffmpeg` ← `modernization/trunk`。
+- 阶段 PR：先合入 `modernization/trunk`；再定期将 trunk 合入 `master`。
+- 历史阶段文档中出现的 `modernization/phase-0-1` 指重命名前的集成分支，不必回改提交历史。
+
 ### 阶段 0：建立安全基线
 
 - 确认工作树；

@@ -5,7 +5,8 @@
 > 完整方案：[modernization-plan.md](./modernization-plan.md)  
 > 范围：仅阶段 2（见完整方案 [§15 阶段 2](./modernization-plan.md#阶段-2删除-maui)、[§2.6](./modernization-plan.md#26-删除-maui)）  
 > 前置：[modernization-plan-01.md](./modernization-plan-01.md) 已关闭  
-> 分支：`modernization/phase-0-1`  
+> 分支（本轮）：`modernization/phase-0-1`  
+> 说明：集成分支后续已重命名为 `modernization/trunk`；本文件保留历史分支名。 
 > 归档 Tag：`archive/maui-final` → `9019d19`（与 `baseline/pre-rewrite` 同 commit）
 
 ## 本轮目标

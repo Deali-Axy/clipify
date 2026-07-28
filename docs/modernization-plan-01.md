@@ -4,7 +4,8 @@
 > 日期：2026-07-26（关闭确认：2026-07-27）  
 > 完整方案：[modernization-plan.md](./modernization-plan.md)  
 > 范围：仅阶段 0、阶段 1（见完整方案 §15、§20）  
-> 分支：`modernization/phase-0-1`  
+> 分支（本轮）：`modernization/phase-0-1`  
+> 说明：集成分支后续已重命名为 `modernization/trunk`；本文件保留历史分支名。 
 > 基线 Tag：`baseline/pre-rewrite`（已推远端，commit `9019d19`）
 
 ## 本轮目标

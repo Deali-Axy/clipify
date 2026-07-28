@@ -1,11 +1,11 @@
 # Clipify 现代化 · 第 3 轮（阶段 3：Domain、Application 与任务系统）
 
-> 状态：已关闭（复审通过，可合并）  
+> 状态：已关闭（已合入 `modernization/trunk`；待合入 `master`）  
 > 日期：2026-07-28  
 > 完整方案：[modernization-plan.md](./modernization-plan.md)  
 > 范围：仅阶段 3（见完整方案 [§15 阶段 3](./modernization-plan.md#阶段-3domainapplication-与任务系统)、[§6 任务系统](./modernization-plan.md#6-异步媒体任务系统)）  
 > 前置：[modernization-plan-02.md](./modernization-plan-02.md) 已关闭  
-> 分支：`modernization/phase-3-job-system`
+> 分支：`modernization/phase-3-job-system`（已合入 `modernization/trunk`）
 
 ## 本轮目标
 
