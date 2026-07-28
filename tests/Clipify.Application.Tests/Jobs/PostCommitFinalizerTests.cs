@@ -58,6 +58,91 @@ public class PostCommitFinalizerTests
     }
 
     [Fact]
+    public async Task Finalize_writes_artifact_when_commit_progress_permanently_fails()
+    {
+        var store = new InMemoryMediaJobStore();
+        var jobId = MediaJobId.New();
+        var now = DateTimeOffset.UtcNow;
+        await store.InsertAsync(
+            MediaJobSnapshot.CreateQueued(
+                jobId,
+                new FakeDelayJobDefinition { Delay = TimeSpan.Zero },
+                now));
+        await store.TransitionAsync(jobId, MediaJobState.Queued, MediaJobState.Running, now, startedAt: now);
+
+        var addCount = 0;
+        var context = new MediaJobExecutionContext
+        {
+            Snapshot = (await store.GetAsync(jobId))!,
+            ReportProgressAsync = (progress, ct) =>
+            {
+                if (string.Equals(progress.Stage, "commit", StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException("commit progress always fails");
+                }
+
+                return store.UpdateProgressAsync(jobId, progress, ct);
+            },
+            AddArtifactAsync = async (artifact, ct) =>
+            {
+                addCount++;
+                await store.AddArtifactAsync(artifact, ct);
+            },
+        };
+        context.MarkOutputCommitted();
+
+        var artifact = MediaArtifact.Create(
+            jobId,
+            kind: "fake_output",
+            path: "fake://commit-progress-fail",
+            createdAt: now,
+            artifactId: "stable-id-commit-fail");
+
+        await PostCommitFinalizer.FinalizeAsync(context, artifact, totalDuration: null, TimeProvider.System, maxAttempts: 2);
+
+        Assert.Equal(1, addCount);
+        Assert.Single(await store.ListArtifactsAsync(jobId));
+        Assert.Contains("commit progress", context.PostCommitWarning ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("artifact", context.PostCommitWarning ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Finalize_merges_warnings_when_both_progress_stages_fail()
+    {
+        var store = new InMemoryMediaJobStore();
+        var jobId = MediaJobId.New();
+        var now = DateTimeOffset.UtcNow;
+        await store.InsertAsync(
+            MediaJobSnapshot.CreateQueued(
+                jobId,
+                new FakeDelayJobDefinition { Delay = TimeSpan.Zero },
+                now));
+        await store.TransitionAsync(jobId, MediaJobState.Queued, MediaJobState.Running, now, startedAt: now);
+
+        var context = new MediaJobExecutionContext
+        {
+            Snapshot = (await store.GetAsync(jobId))!,
+            ReportProgressAsync = (_, _) => throw new InvalidOperationException("all progress fails"),
+            AddArtifactAsync = (artifact, ct) => store.AddArtifactAsync(artifact, ct),
+        };
+        context.MarkOutputCommitted();
+
+        var artifact = MediaArtifact.Create(
+            jobId,
+            kind: "fake_output",
+            path: "fake://both-progress-fail",
+            createdAt: now,
+            artifactId: "stable-id-both-fail");
+
+        await PostCommitFinalizer.FinalizeAsync(context, artifact, totalDuration: null, TimeProvider.System, maxAttempts: 2);
+
+        Assert.Single(await store.ListArtifactsAsync(jobId));
+        Assert.Contains("commit progress", context.PostCommitWarning ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("final progress", context.PostCommitWarning ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(';', context.PostCommitWarning ?? string.Empty);
+    }
+
+    [Fact]
     public async Task Finalize_records_warning_when_completed_progress_permanently_fails()
     {
         var store = new InMemoryMediaJobStore();

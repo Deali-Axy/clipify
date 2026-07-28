@@ -55,6 +55,8 @@ public sealed class MediaJobExecutionContext
     public void RecordPostCommitWarning(string warning)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(warning);
-        PostCommitWarning = warning;
+        PostCommitWarning = string.IsNullOrWhiteSpace(PostCommitWarning)
+            ? warning
+            : $"{PostCommitWarning}; {warning}";
     }
 }

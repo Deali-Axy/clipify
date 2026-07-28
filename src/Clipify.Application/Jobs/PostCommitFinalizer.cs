@@ -23,22 +23,31 @@ public static class PostCommitFinalizer
             throw new ArgumentOutOfRangeException(nameof(maxAttempts));
         }
 
-        await RetryAsync(
-                "commit progress",
-                maxAttempts,
-                onRetry,
-                async () =>
-                {
-                    await context.ReportProgressAsync(
-                            MediaJobProgress.Create(
-                                "commit",
-                                timeProvider.GetUtcNow(),
-                                fraction: 0.95,
-                                totalDuration: totalDuration),
-                            CancellationToken.None)
-                        .ConfigureAwait(false);
-                })
-            .ConfigureAwait(false);
+        try
+        {
+            await RetryAsync(
+                    "commit progress",
+                    maxAttempts,
+                    onRetry,
+                    async () =>
+                    {
+                        await context.ReportProgressAsync(
+                                MediaJobProgress.Create(
+                                    "commit",
+                                    timeProvider.GetUtcNow(),
+                                    fraction: 0.95,
+                                    totalDuration: totalDuration),
+                                CancellationToken.None)
+                            .ConfigureAwait(false);
+                    })
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+            // Progress is best-effort; still attempt the stable artifact write.
+            context.RecordPostCommitWarning(
+                "Output committed but commit progress metadata could not be persisted.");
+        }
 
         try
         {
