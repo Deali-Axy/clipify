@@ -5,6 +5,7 @@ using Clipify.Hosting;
 using Clipify.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Clipify.Application.Abstractions;
 
 namespace Clipify.Cli;
 
@@ -94,18 +95,52 @@ public sealed class CliCommandContext : IAsyncDisposable
             cancellationToken,
             _processCts.Token);
 
+        var options = CreateHostOptions();
+        var paths = options.ResolvePaths();
+        if (!ClipifyDoctor.TryPrepareDataRoot(paths, out var dataDirectoryCheck))
+        {
+            throw new ClipifyException(
+                ClipifyErrorCode.Internal,
+                dataDirectoryCheck.Message,
+                dataDirectoryCheck.Detail);
+        }
+
         if (_host is null)
         {
-            _host = await ClipifyHostFactory.StartAsync(CreateHostOptions(), linked.Token)
-                .ConfigureAwait(false);
+            try
+            {
+                _host = await ClipifyHostFactory.StartAsync(options, linked.Token)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException and not ClipifyException)
+            {
+                throw new ClipifyException(
+                    ClipifyErrorCode.Internal,
+                    "Failed to start Clipify host.",
+                    ex.Message,
+                    ex);
+            }
+
             _workerStarted = true;
             return;
         }
 
         // Diagnostics host already built — migrate and start Worker now.
-        await _host.Services.MigrateClipifyDatabaseAsync(cancellationToken: linked.Token)
-            .ConfigureAwait(false);
-        await _host.StartAsync(linked.Token).ConfigureAwait(false);
+        try
+        {
+            await _host.Services.MigrateClipifyDatabaseAsync(cancellationToken: linked.Token)
+                .ConfigureAwait(false);
+            await _host.StartAsync(linked.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not ClipifyException)
+        {
+            throw new ClipifyException(
+                ClipifyErrorCode.Internal,
+                "Failed to start Clipify host.",
+                ex.Message,
+                ex);
+        }
+
         _workerStarted = true;
     }
 

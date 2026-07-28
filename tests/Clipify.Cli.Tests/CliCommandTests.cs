@@ -440,6 +440,50 @@ public class JobsCommandTests
     }
 
     [Fact]
+    public async Task Jobs_list_json_reports_internal_when_data_dir_is_a_file()
+    {
+        using var data = new TempDataDirectory();
+        var filePath = Path.Combine(data.Path, "not-a-directory");
+        await File.WriteAllTextAsync(filePath, "blocking file");
+
+        using var writers = new CapturingWriters();
+        var code = await CliTestHost.RunAsync(
+            ["jobs", "list", "--json", "--data-dir", filePath],
+            data,
+            writers);
+        Assert.Equal(CliExitCode.InternalError, code);
+
+        var stdout = writers.StdOut.Trim();
+        Assert.False(string.IsNullOrWhiteSpace(stdout), $"stdout empty; stderr={writers.StdErr}");
+        using var doc = JsonDocument.Parse(stdout);
+        Assert.False(doc.RootElement.GetProperty("ok").GetBoolean());
+        Assert.Equal("list", doc.RootElement.GetProperty("command").GetString());
+        Assert.Equal("Internal", doc.RootElement.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Jobs_list_json_reports_internal_when_database_is_corrupt()
+    {
+        using var data = new TempDataDirectory();
+        Directory.CreateDirectory(data.Path);
+        await File.WriteAllTextAsync(Path.Combine(data.Path, "jobs.db"), "this is not a sqlite database");
+
+        using var writers = new CapturingWriters();
+        var code = await CliTestHost.RunAsync(
+            ["jobs", "list", "--json", "--data-dir", data.Path],
+            data,
+            writers);
+        Assert.Equal(CliExitCode.InternalError, code);
+
+        var stdout = writers.StdOut.Trim();
+        Assert.False(string.IsNullOrWhiteSpace(stdout), $"stdout empty; stderr={writers.StdErr}");
+        using var doc = JsonDocument.Parse(stdout);
+        Assert.False(doc.RootElement.GetProperty("ok").GetBoolean());
+        Assert.Equal("list", doc.RootElement.GetProperty("command").GetString());
+        Assert.Equal("Internal", doc.RootElement.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task Two_cli_waiters_claim_preseeded_job_only_once()
     {
         using var data = new TempDataDirectory();

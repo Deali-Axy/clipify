@@ -364,8 +364,7 @@ public static class CliApp
         }
         catch (Exception ex)
         {
-            error.WriteLine($"error: {ex.Message}");
-            return CliExitCode.InternalError;
+            return RenderUnhandledException(parseResult, ex);
         }
         finally
         {
@@ -373,6 +372,35 @@ public static class CliApp
             {
                 await context.DisposeAsync().ConfigureAwait(false);
             }
+        }
+
+        int RenderUnhandledException(ParseResult failedParse, Exception ex)
+        {
+            var useJson = failedParse.GetValue(jsonOption)
+                || args.Any(a => string.Equals(a, "--json", StringComparison.Ordinal));
+            var useJsonl = failedParse.GetValue(jsonlOption)
+                || args.Any(a => string.Equals(a, "--jsonl", StringComparison.Ordinal));
+            var mode = useJsonl ? OutputMode.Jsonl : useJson ? OutputMode.Json : OutputMode.Text;
+            var renderer = context?.Renderer ?? CliRendererFactory.Create(mode, output, error);
+            var commandName = failedParse.CommandResult.Command.Name;
+
+            if (ex is ClipifyException clipifyEx)
+            {
+                renderer.WriteResult(new CliCommandResultDto(
+                    Ok: false,
+                    Command: commandName,
+                    Error: CliDtoMapper.FromError(clipifyEx.ToError())));
+                return ExitCodeMapper.FromError(clipifyEx.ToError());
+            }
+
+            var internalError = ClipifyError.Internal(
+                "Command failed during host startup or execution.",
+                ex.Message);
+            renderer.WriteResult(new CliCommandResultDto(
+                Ok: false,
+                Command: commandName,
+                Error: CliDtoMapper.FromError(internalError)));
+            return CliExitCode.InternalError;
         }
     }
 }
