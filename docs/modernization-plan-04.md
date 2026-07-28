@@ -64,7 +64,7 @@
 - [x] 取消能在有限时间内终止整个进程树；
 - [x] 真实 trim/extract-audio/thumbnail E2E 与中文路径通过；
 - [x] 阶段 3 全部测试继续通过；
-- [ ] Release restore/build/test 和三平台 CI 通过。（本地 Windows Release 已通过；macOS/Ubuntu 随 PR 验证）
+- [x] Release restore/build/test 和三平台 CI 通过。（CI 安装系统 ffmpeg/ffprobe 以跑 RealMedia E2E）
 
 ## 验证命令与本地结果
 
@@ -85,7 +85,7 @@ dotnet test Clipify.sln -c Release --no-build --no-restore
 ## 已知问题 / 偏差
 
 - FFprobe 为获取 stdout JSON，在 `FFprobeClient` 内使用与 Runner 相同安全规则的独立进程启动；尚未把“捕获 stdout 文本”并入通用 `IFFmpegProcessRunner`（进度协议仍走 Runner）。
-- 三平台 CI 与发布包内 FFmpeg 分发仍属后续工作。
+- 三平台 CI 通过系统包管理器安装 `ffmpeg`/`ffprobe` 以跑 RealMedia E2E；发布包内嵌 FFmpeg 分发仍属后续工作。
 
 ## Codex 审阅修复（2026-07-28）
 
