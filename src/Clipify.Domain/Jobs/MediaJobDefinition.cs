@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Clipify.Domain.Media;
 
 namespace Clipify.Domain.Jobs;
 
@@ -20,7 +21,6 @@ public abstract record MediaJobDefinition
 
 /// <summary>
 /// Phase-3 test/no-op definition. Delays then optionally fails or produces a fake artifact.
-/// Real media definitions arrive in later phases.
 /// </summary>
 public sealed record FakeDelayJobDefinition : MediaJobDefinition
 {
@@ -37,6 +37,65 @@ public sealed record FakeDelayJobDefinition : MediaJobDefinition
 
     /// <summary>Optional message echoed into progress / artifact metadata.</summary>
     public string? Label { get; init; }
+}
+
+/// <summary>
+/// Trim/cut a media file to a time range. Business fields only — no raw FFmpeg args.
+/// </summary>
+public sealed record TrimMediaJobDefinition : MediaJobDefinition
+{
+    public const string Discriminator = "trim_media";
+
+    [JsonIgnore]
+    public override string Kind => Discriminator;
+
+    public required string InputPath { get; init; }
+
+    public required string OutputPath { get; init; }
+
+    public required TimeRange Range { get; init; }
+
+    public OutputConflictPolicy ConflictPolicy { get; init; } = OutputConflictPolicy.Fail;
+}
+
+/// <summary>
+/// Extract audio from a media file into a limited output format.
+/// </summary>
+public sealed record ExtractAudioJobDefinition : MediaJobDefinition
+{
+    public const string Discriminator = "extract_audio";
+
+    [JsonIgnore]
+    public override string Kind => Discriminator;
+
+    public required string InputPath { get; init; }
+
+    public required string OutputPath { get; init; }
+
+    public AudioOutputFormat Format { get; init; } = AudioOutputFormat.Mp3;
+
+    public OutputConflictPolicy ConflictPolicy { get; init; } = OutputConflictPolicy.Fail;
+}
+
+/// <summary>
+/// Capture a single thumbnail frame at a point in time.
+/// </summary>
+public sealed record ThumbnailJobDefinition : MediaJobDefinition
+{
+    public const string Discriminator = "thumbnail";
+
+    [JsonIgnore]
+    public override string Kind => Discriminator;
+
+    public required string InputPath { get; init; }
+
+    public required string OutputPath { get; init; }
+
+    public TimeSpan At { get; init; }
+
+    public ThumbnailImageFormat Format { get; init; } = ThumbnailImageFormat.Jpg;
+
+    public OutputConflictPolicy ConflictPolicy { get; init; } = OutputConflictPolicy.Fail;
 }
 
 public static class MediaJobDefinitionSerializer
@@ -61,6 +120,9 @@ public static class MediaJobDefinitionSerializer
     private static readonly HashSet<string> AllowedKinds =
     [
         FakeDelayJobDefinition.Discriminator,
+        TrimMediaJobDefinition.Discriminator,
+        ExtractAudioJobDefinition.Discriminator,
+        ThumbnailJobDefinition.Discriminator,
     ];
 
     public static bool IsAllowedKind(string kind) => AllowedKinds.Contains(kind);
@@ -78,6 +140,9 @@ public static class MediaJobDefinitionSerializer
         return definition switch
         {
             FakeDelayJobDefinition fake => JsonSerializer.Serialize(fake, Options),
+            TrimMediaJobDefinition trim => JsonSerializer.Serialize(trim, Options),
+            ExtractAudioJobDefinition extract => JsonSerializer.Serialize(extract, Options),
+            ThumbnailJobDefinition thumbnail => JsonSerializer.Serialize(thumbnail, Options),
             _ => throw new ArgumentException(
                 $"Definition kind '{definition.Kind}' has no serializer.",
                 nameof(definition)),
@@ -98,6 +163,12 @@ public static class MediaJobDefinitionSerializer
         {
             FakeDelayJobDefinition.Discriminator =>
                 JsonSerializer.Deserialize<FakeDelayJobDefinition>(json, Options),
+            TrimMediaJobDefinition.Discriminator =>
+                JsonSerializer.Deserialize<TrimMediaJobDefinition>(json, Options),
+            ExtractAudioJobDefinition.Discriminator =>
+                JsonSerializer.Deserialize<ExtractAudioJobDefinition>(json, Options),
+            ThumbnailJobDefinition.Discriminator =>
+                JsonSerializer.Deserialize<ThumbnailJobDefinition>(json, Options),
             _ => null,
         };
 
