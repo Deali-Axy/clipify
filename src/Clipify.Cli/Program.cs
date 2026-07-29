@@ -1,5 +1,3 @@
-﻿using Clipify.Hosting;
+﻿using Clipify.Cli;
 
-Console.WriteLine($"clipify CLI skeleton ({HostingAssembly.Name}).");
-Console.WriteLine("Commands arrive in phase 5.");
-return 0;
+return await CliApp.RunAsync(args);

@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Clipify.Cli\Clipify.Cli.csproj" />
     <ProjectReference Include="..\..\src\Clipify.Hosting\Clipify.Hosting.csproj" />
+    <ProjectReference Include="..\..\src\Clipify.FFmpeg\Clipify.FFmpeg.csproj" />
   </ItemGroup>
 
 </Project>

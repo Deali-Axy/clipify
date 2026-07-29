@@ -1,5 +1,15 @@
 # Clipify 转换器使用说明
 
+> **现代化说明（阶段 5）**  
+> 本项目是旧的交互式批量转换工具，**不会**迁入新 `clipify` CLI。  
+> 新架构通过 Application 合同提供 `trim` / `extract-audio` / `thumbnail` 与 `jobs`；  
+> `convert` / `merge` / `batch`、交互式选择、原始 FFmpeg 参数拼接与默认覆盖均不在阶段 5 范围。  
+> 源码保留至阶段 9 归档删除。新入口请使用：
+>
+> ```bash
+> dotnet run --project src/Clipify.Cli -- --help
+> ```
+
 ## 转换器架构
 
 ClipifyConveter 采用模块化的转换器架构，支持多种视频格式转换。
