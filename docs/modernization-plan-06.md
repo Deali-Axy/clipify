@@ -1,10 +1,10 @@
 # Clipify 现代化 · 第 6 轮（阶段 6：MCP Server）
 
-> 状态：待实施  
-> 日期：2026-07-28  
+> 状态：实施中  
+> 日期：2026-07-29  
 > 完整方案：[modernization-plan.md](./modernization-plan.md)  
 > 前置：[modernization-plan-05.md](./modernization-plan-05.md) 已关闭  
-> 工作分支：`modernization/phase-6-mcp`（从 `modernization/trunk` 派生）
+> 工作分支：`modernization/phase-6-mcp`（从 `modernization/phase-5-cli` 派生；待阶段 5 合入 trunk 后变基）
 
 ## 本轮目标
 
@@ -98,15 +98,15 @@ Tool 名称和字段使用 snake_case。时间接受整数毫秒或 `HH:MM:SS.ff
 
 ## 验收清单
 
-- [ ] MCP Client 可完成初始化、Tool Discovery，并调用全部九个 Tools；
-- [ ] stdout 每条内容均属于 MCP 协议，日志和异常不会污染协议流；
-- [ ] Tool Schema、名称、描述、必填项和 Annotations 与快照一致；
-- [ ] 媒体 Tool 快速返回 JobId，`wait_job` 不超过 60 秒且超时返回最新状态；
-- [ ] Tool Call 取消、Job 取消和进程终止三种语义互不混淆；
-- [ ] 输入、输出、`..`、链接、Junction、UNC 和前缀碰撞不能逃出允许根目录；
-- [ ] 列表、Artifact、错误和日志摘要均有稳定上限；
-- [ ] MCP 与 CLI 共享数据库，两个进程不会重复执行同一 Job；
-- [ ] 不存在 Shell、原始 FFmpeg、URL、删除文件或任意 Definition 入口；
+- [x] MCP Client 可完成初始化、Tool Discovery，并调用全部九个 Tools；
+- [x] stdout 每条内容均属于 MCP 协议，日志和异常不会污染协议流；
+- [x] Tool Schema、名称、描述、必填项和 Annotations 与快照一致；
+- [x] 媒体 Tool 快速返回 JobId，`wait_job` 不超过 60 秒且超时返回最新状态；
+- [x] Tool Call 取消、Job 取消和进程终止三种语义互不混淆；
+- [x] 输入、输出、`..`、链接、Junction、UNC 和前缀碰撞不能逃出允许根目录；
+- [x] 列表、Artifact、错误和日志摘要均有稳定上限；
+- [x] MCP 与 CLI 共享数据库，两个进程不会重复执行同一 Job；
+- [x] 不存在 Shell、原始 FFmpeg、URL、删除文件或任意 Definition 入口；
 - [ ] Release restore/build/test 与 Windows、macOS、Linux CI 通过。
 
 ## 验证命令

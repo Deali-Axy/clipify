@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "clipify": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": [
+        "REPLACE_WITH_REPO/src/Clipify.Mcp/bin/Release/net10.0/clipify-mcp.dll",
+        "--allow-root",
+        "REPLACE_WITH_MEDIA_WORKSPACE",
+        "--no-file-log"
+      ],
+      "env": {}
+    }
+  }
+}
