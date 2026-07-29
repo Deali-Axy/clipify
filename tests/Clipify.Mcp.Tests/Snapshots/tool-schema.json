@@ -1,0 +1,145 @@
+{
+  "cancel_job": {
+    "title": "Cancel Job",
+    "description": "Request cancellation of a queued or running job. Does not wait for terminal state.",
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "required": [
+      "job_id"
+    ],
+    "properties": {
+      "job_id": "string"
+    }
+  },
+  "extract_audio": {
+    "title": "Extract Audio",
+    "description": "Enqueue an audio extraction job. Returns job_id immediately.",
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "required": [
+      "input",
+      "output"
+    ],
+    "properties": {
+      "conflict_policy": "[\u0022string\u0022,\u0022null\u0022]",
+      "format": "[\u0022string\u0022,\u0022null\u0022]",
+      "input": "string",
+      "output": "string"
+    }
+  },
+  "generate_thumbnail": {
+    "title": "Generate Thumbnail",
+    "description": "Enqueue a thumbnail generation job. Returns job_id immediately.",
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "required": [
+      "input",
+      "output"
+    ],
+    "properties": {
+      "at": "[\u0022string\u0022,\u0022null\u0022]",
+      "conflict_policy": "[\u0022string\u0022,\u0022null\u0022]",
+      "format": "[\u0022string\u0022,\u0022null\u0022]",
+      "input": "string",
+      "output": "string"
+    }
+  },
+  "get_job": {
+    "title": "Get Job",
+    "description": "Get one job snapshot including limited artifacts and error summary.",
+    "readOnlyHint": true,
+    "destructiveHint": null,
+    "idempotentHint": null,
+    "openWorldHint": false,
+    "required": [
+      "job_id"
+    ],
+    "properties": {
+      "job_id": "string"
+    }
+  },
+  "list_jobs": {
+    "title": "List Jobs",
+    "description": "List media jobs with optional state filter and pagination (default take 20, max 100).",
+    "readOnlyHint": true,
+    "destructiveHint": null,
+    "idempotentHint": null,
+    "openWorldHint": false,
+    "required": [],
+    "properties": {
+      "skip": "integer",
+      "states": "[\u0022string\u0022,\u0022null\u0022]",
+      "take": "integer"
+    }
+  },
+  "probe_media": {
+    "title": "Probe Media",
+    "description": "Probe a local media file with ffprobe. Synchronous read-only.",
+    "readOnlyHint": true,
+    "destructiveHint": null,
+    "idempotentHint": null,
+    "openWorldHint": false,
+    "required": [
+      "input"
+    ],
+    "properties": {
+      "input": "string"
+    }
+  },
+  "retry_job": {
+    "title": "Retry Job",
+    "description": "Create a new job from a failed, interrupted, or canceled job. Returns the new job_id immediately.",
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "required": [
+      "job_id"
+    ],
+    "properties": {
+      "job_id": "string"
+    }
+  },
+  "trim_video": {
+    "title": "Trim Video",
+    "description": "Enqueue a video trim job. Returns job_id immediately; use wait_job to observe completion.",
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "required": [
+      "input",
+      "output",
+      "start",
+      "end"
+    ],
+    "properties": {
+      "conflict_policy": "[\u0022string\u0022,\u0022null\u0022]",
+      "end": "string",
+      "input": "string",
+      "output": "string",
+      "start": "string"
+    }
+  },
+  "wait_job": {
+    "title": "Wait Job",
+    "description": "Wait up to timeout_seconds (default 15, max 60) for a job terminal state. Timeout returns the latest snapshot and is not a job failure.",
+    "readOnlyHint": true,
+    "destructiveHint": null,
+    "idempotentHint": null,
+    "openWorldHint": false,
+    "required": [
+      "job_id"
+    ],
+    "properties": {
+      "job_id": "string",
+      "timeout_seconds": "integer"
+    }
+  }
+}
