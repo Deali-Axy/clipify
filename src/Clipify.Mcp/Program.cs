@@ -1,5 +1,3 @@
-﻿using Clipify.Hosting;
+﻿using Clipify.Mcp;
 
-Console.Error.WriteLine($"clipify-mcp skeleton ({HostingAssembly.Name}).");
-Console.Error.WriteLine("MCP stdio server arrives in phase 6.");
-return 0;
+return await McpApp.RunAsync(args).ConfigureAwait(false);
